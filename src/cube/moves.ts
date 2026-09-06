@@ -1,4 +1,4 @@
-import type { CubeState, CubeColor, Face } from "./CubeState"
+import type { CubeState, Face } from "./CubeState"
 
 function rotateFaceClockwise(face: Face): Face {
   return [

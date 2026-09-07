@@ -21,6 +21,7 @@ import {
   moveB2,
 } from "./cube/moves"
 import { createSolvedCube } from "./cube/CubeState"
+import { solveCube } from "./cube/solver/solver"
 import "./App.css"
 
 type MoveFunction = (cube: CubeState) => CubeState
@@ -106,9 +107,13 @@ function App() {
     createSolvedCube()
   )
 
+  const [solution, setSolution] = useState<string[]>([])
+  const [isSolving, setIsSolving] = useState(false)
   const [moveHistory, setMoveHistory] = useState<string[]>([])
 
   function applyMove(move: string) {
+    if (isSolving) return
+
     const moveFunction = moves[move]
 
     if (!moveFunction) return
@@ -116,9 +121,13 @@ function App() {
     setCube((currentCube) => moveFunction(currentCube))
 
     setMoveHistory((history) => [...history, move])
+
+    setSolution([])
   }
 
   function undoMove() {
+    if (isSolving) return
+
     if (moveHistory.length === 0) return
 
     const lastMove =
@@ -142,9 +151,13 @@ function App() {
     setMoveHistory((history) =>
       history.slice(0, -1)
     )
+
+    setSolution([])
   }
 
   function scrambleCube() {
+    if (isSolving) return
+
     let scrambledCube = createSolvedCube()
     const scramble: string[] = []
 
@@ -173,15 +186,63 @@ function App() {
 
     setCube(scrambledCube)
     setMoveHistory(scramble)
+    setSolution([])
   }
 
   function resetCube() {
+    if (isSolving) return
+
     setCube(createSolvedCube())
     setMoveHistory([])
+    setSolution([])
   }
 
   function clearHistory() {
+    if (isSolving) return
+
     setMoveHistory([])
+  }
+
+  function solveCurrentCube() {
+    if (isSolving) return
+
+    const result = solveCube(cube)
+
+    if (!result.solved) {
+      setSolution([])
+      alert(
+        "Could not solve this cube within the current search depth."
+      )
+      return
+    }
+
+    setSolution(result.moves)
+    setIsSolving(true)
+
+    let currentCube = cube
+    let currentHistory = [...moveHistory]
+
+    result.moves.forEach((move, index) => {
+      setTimeout(() => {
+        const moveFunction = moves[move]
+
+        if (!moveFunction) return
+
+        currentCube = moveFunction(currentCube)
+        currentHistory = [...currentHistory, move]
+
+        setCube(currentCube)
+        setMoveHistory(currentHistory)
+
+        if (index === result.moves.length - 1) {
+          setIsSolving(false)
+        }
+      }, (index + 1) * 400)
+    })
+
+    if (result.moves.length === 0) {
+      setIsSolving(false)
+    }
   }
 
   return (
@@ -196,6 +257,7 @@ function App() {
           <button
             className="secondary-button"
             onClick={scrambleCube}
+            disabled={isSolving}
           >
             🎲 Scramble
           </button>
@@ -203,14 +265,28 @@ function App() {
           <button
             className="secondary-button"
             onClick={undoMove}
-            disabled={moveHistory.length === 0}
+            disabled={
+              isSolving ||
+              moveHistory.length === 0
+            }
           >
             ↩ Undo
           </button>
 
           <button
+            className="secondary-button"
+            onClick={solveCurrentCube}
+            disabled={isSolving}
+          >
+            {isSolving
+              ? "Solving..."
+              : "🧩 Solve"}
+          </button>
+
+          <button
             className="reset-button"
             onClick={resetCube}
+            disabled={isSolving}
           >
             Reset
           </button>
@@ -237,7 +313,14 @@ function App() {
 
           <div className="move-groups">
             {(
-              ["U", "R", "F", "L", "D", "B"] as FaceName[]
+              [
+                "U",
+                "R",
+                "F",
+                "L",
+                "D",
+                "B",
+              ] as FaceName[]
             ).map((face) => (
               <div
                 className="move-group"
@@ -248,6 +331,7 @@ function App() {
                 <div className="move-buttons">
                   <button
                     onClick={() => applyMove(face)}
+                    disabled={isSolving}
                   >
                     {face}
                   </button>
@@ -256,6 +340,7 @@ function App() {
                     onClick={() =>
                       applyMove(`${face}'`)
                     }
+                    disabled={isSolving}
                   >
                     {face}'
                   </button>
@@ -264,6 +349,7 @@ function App() {
                     onClick={() =>
                       applyMove(`${face}2`)
                     }
+                    disabled={isSolving}
                   >
                     {face}2
                   </button>
@@ -280,6 +366,7 @@ function App() {
             <button
               className="clear-button"
               onClick={clearHistory}
+              disabled={isSolving}
             >
               Clear
             </button>
@@ -292,6 +379,29 @@ function App() {
           ) : (
             <div className="history">
               {moveHistory.map((move, index) => (
+                <span
+                  key={index}
+                  className="history-move"
+                >
+                  {move}
+                </span>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="solution-section">
+          <div className="history-header">
+            <h2>Solution</h2>
+          </div>
+
+          {solution.length === 0 ? (
+            <p className="empty-history">
+              No solution yet.
+            </p>
+          ) : (
+            <div className="history">
+              {solution.map((move, index) => (
                 <span
                   key={index}
                   className="history-move"

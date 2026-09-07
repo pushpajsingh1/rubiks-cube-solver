@@ -1,3 +1,25 @@
+import type { CubeState } from "./CubeState"
+import {
+  moveU,
+  moveU2,
+  moveUPrime,
+  moveR,
+  moveR2,
+  moveRPrime,
+  moveF,
+  moveF2,
+  moveFPrime,
+  moveL,
+  moveL2,
+  moveLPrime,
+  moveD,
+  moveD2,
+  moveDPrime,
+  moveB,
+  moveB2,
+  moveBPrime,
+} from "./moves"
+
 export type Move = string
 
 const validMoves = new Set([
@@ -33,4 +55,63 @@ export function inverseSequence(sequence: Move[]): Move[] {
   return [...sequence]
     .reverse()
     .map(inverseMove)
+}
+
+export function applyMove(cube: CubeState, move: Move): CubeState {
+  switch (move) {
+    case "U":
+      return moveU(cube)
+    case "U'":
+      return moveUPrime(cube)
+    case "U2":
+      return moveU2(cube)
+
+    case "R":
+      return moveR(cube)
+    case "R'":
+      return moveRPrime(cube)
+    case "R2":
+      return moveR2(cube)
+
+    case "F":
+      return moveF(cube)
+    case "F'":
+      return moveFPrime(cube)
+    case "F2":
+      return moveF2(cube)
+
+    case "L":
+      return moveL(cube)
+    case "L'":
+      return moveLPrime(cube)
+    case "L2":
+      return moveL2(cube)
+
+    case "D":
+      return moveD(cube)
+    case "D'":
+      return moveDPrime(cube)
+    case "D2":
+      return moveD2(cube)
+
+    case "B":
+      return moveB(cube)
+    case "B'":
+      return moveBPrime(cube)
+    case "B2":
+      return moveB2(cube)
+
+    default:
+      throw new Error(`Invalid move: ${move}`)
+  }
+}
+
+export function applySequence(
+  cube: CubeState,
+  sequence: Move[],
+): CubeState {
+  return sequence.reduce(
+    (currentCube, move) => applyMove(currentCube, move),
+    cube,
+  )
 }

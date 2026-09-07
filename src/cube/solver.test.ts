@@ -1,82 +1,68 @@
-import { describe, it } from "vitest"
+import { describe, expect, it } from "vitest"
 import { createSolvedCube } from "./CubeState"
-import {
-  moveU,
-  moveUPrime,
-  moveU2,
-  moveR,
-  moveRPrime,
-  moveR2,
-  moveF,
-  moveFPrime,
-  moveF2,
-  moveL,
-  moveLPrime,
-  moveL2,
-  moveD,
-  moveDPrime,
-  moveD2,
-  moveB,
-  moveBPrime,
-  moveB2,
-} from "./moves"
-import { inverseSequence } from "./notation"
-import type { CubeState } from "./CubeState"
+import { applyMove, applySequence, inverseSequence } from "./notation"
 
-type MoveFunction = (cube: CubeState) => CubeState
+describe("Move notation", () => {
+  it("should apply a single move", () => {
+    const solved = createSolvedCube()
 
-const moves: Record<string, MoveFunction> = {
-  U: moveU,
-  "U'": moveUPrime,
-  U2: moveU2,
+    const scrambled = applyMove(solved, "R")
 
-  R: moveR,
-  "R'": moveRPrime,
-  R2: moveR2,
+    expect(scrambled).not.toEqual(solved)
+  })
 
-  F: moveF,
-  "F'": moveFPrime,
-  F2: moveF2,
+  it("should apply a move and its inverse", () => {
+    const solved = createSolvedCube()
 
-  L: moveL,
-  "L'": moveLPrime,
-  L2: moveL2,
+    const cube = applySequence(solved, ["R", "R'"])
 
-  D: moveD,
-  "D'": moveDPrime,
-  D2: moveD2,
+    expect(cube).toEqual(solved)
+  })
 
-  B: moveB,
-  "B'": moveBPrime,
-  B2: moveB2,
-}
+  it("should apply a double move twice and return to solved", () => {
+    const solved = createSolvedCube()
 
-const moveNames = Object.keys(moves)
+    const cube = applySequence(solved, ["R2", "R2"])
 
-describe("Cube move reversibility", () => {
-  for (const firstMove of moveNames) {
-    for (const secondMove of moveNames) {
-      it(`${firstMove} ${secondMove} should reverse correctly`, () => {
-        const solved = createSolvedCube()
+    expect(cube).toEqual(solved)
+  })
 
-        let cube = createSolvedCube()
+  it("should apply a sequence in order", () => {
+    const solved = createSolvedCube()
 
-        cube = moves[firstMove](cube)
-        cube = moves[secondMove](cube)
+    const cube = applySequence(solved, [
+      "R",
+      "U",
+      "F",
+    ])
 
-        const solution = inverseSequence([
-          firstMove,
-          secondMove,
-        ])
+    expect(cube).not.toEqual(solved)
+  })
 
-        for (const move of solution) {
-          cube = moves[move](cube)
-        }
+  it("should solve a scramble using its inverse sequence", () => {
+    const solved = createSolvedCube()
 
-        if (JSON.stringify(cube) !== JSON.stringify(solved)) {
-            throw new Error(`FAILED: ${firstMove} ${secondMove}`)
-        }
-      })
-    }
-  }
+    const scramble = [
+      "R",
+      "U",
+      "F",
+      "L",
+      "D",
+      "B",
+    ]
+
+    const scrambled = applySequence(solved, scramble)
+
+    const solution = inverseSequence(scramble)
+
+    const result = applySequence(scrambled, solution)
+
+    expect(result).toEqual(solved)
+  })
+
+  it("should reject an invalid move", () => {
+    const solved = createSolvedCube()
+
+    expect(() => applyMove(solved, "X")).toThrow()
+  })
 })

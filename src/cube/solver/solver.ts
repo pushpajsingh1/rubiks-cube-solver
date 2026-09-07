@@ -33,45 +33,21 @@ function isSolved(cube: CubeState): boolean {
   })
 }
 
-/**
- * A compact representation of the cube.
- *
- * The center stickers are fixed, so the complete sticker
- * arrangement is enough to uniquely identify a state.
- */
 function cubeKey(cube: CubeState): string {
-  return [
-    ...cube.U,
-    ...cube.D,
-    ...cube.F,
-    ...cube.B,
-    ...cube.L,
-    ...cube.R,
-  ].join("")
+  return JSON.stringify([
+    cube.U,
+    cube.D,
+    cube.F,
+    cube.B,
+    cube.L,
+    cube.R,
+  ])
 }
 
-/**
- * Returns the face affected by a move.
- */
 function moveFace(move: Move): string {
   return move[0]
 }
 
-/**
- * Prevent obviously redundant sequences.
- *
- * Example:
- *   R R
- *
- * is equivalent to:
- *   R2
- *
- * and
- *
- *   R R'
- *
- * immediately returns to the previous state.
- */
 function shouldSkipMove(
   move: Move,
   previousMove?: Move,
@@ -80,21 +56,9 @@ function shouldSkipMove(
     return false
   }
 
-  return (
-    moveFace(move) ===
-    moveFace(previousMove)
-  )
+  return moveFace(move) === moveFace(previousMove)
 }
 
-/**
- * Count stickers that don't match their face center.
- *
- * This is a simple admissible heuristic:
- * every move affects at most 20 stickers, so if the cube
- * has mismatched stickers we know it is not solved.
- *
- * We use a lightweight version here only to order moves.
- */
 function misplacedStickers(cube: CubeState): number {
   let count = 0
 
@@ -112,28 +76,20 @@ function misplacedStickers(cube: CubeState): number {
   return count
 }
 
-/**
- * Search moves that look more promising first.
- *
- * This does not change correctness. It only changes
- * which branches are explored first.
- */
 function orderedMoves(
   cube: CubeState,
   previousMove?: Move,
 ): Move[] {
-  const candidates = SEARCH_MOVES.filter(
-    (move) =>
-      !shouldSkipMove(move, previousMove),
-  )
-
-  return candidates
+  return SEARCH_MOVES
+    .filter(
+      (move) =>
+        !shouldSkipMove(move, previousMove),
+    )
     .map((move) => {
       const nextCube = applyMove(cube, move)
 
       return {
         move,
-        cube: nextCube,
         score: misplacedStickers(nextCube),
       }
     })
@@ -158,7 +114,6 @@ function search(
   }
 
   const key = cubeKey(cube)
-
   const previousDepth = visited.get(key)
 
   if (
@@ -170,10 +125,9 @@ function search(
 
   visited.set(key, depth)
 
-  for (const move of orderedMoves(
-    cube,
-    previousMove,
-  )) {
+  const moves = orderedMoves(cube, previousMove)
+
+  for (const move of moves) {
     const nextCube = applyMove(cube, move)
 
     const result = search(
@@ -204,11 +158,7 @@ export function solveCube(
     }
   }
 
-  for (
-    let depth = 1;
-    depth <= maxDepth;
-    depth++
-  ) {
+  for (let depth = 1; depth <= maxDepth; depth++) {
     const visited = new Map<string, number>()
 
     const result = search(

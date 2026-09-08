@@ -177,3 +177,30 @@ describe("Search solver", () => {
     expect(cube).toEqual(createSolvedCube())
   })
 })
+describe("IDA* long scramble tests", () => {
+  it("solves a 10-move scramble", () => {
+    const scramble: Move[] = [
+      "R",
+      "U",
+      "R'",
+      "U'",
+      "F",
+      "R",
+      "F'",
+      "U2",
+      "L",
+      "D",
+    ]
+
+    let cube = createSolvedCube()
+
+    for (const move of scramble) {
+      cube = applyMove(cube, move)
+    }
+
+    const result = solveCube(cube, 20)
+
+    expect(result.solved).toBe(true)
+    expect(result.moves.length).toBeLessThanOrEqual(20)
+  })
+})

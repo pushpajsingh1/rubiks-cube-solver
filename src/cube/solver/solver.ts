@@ -18,7 +18,7 @@ const SEARCH_MOVES: Move[] = [
   "B", "B'", "B2",
 ]
 
-const DEFAULT_MAX_DEPTH = 12
+const DEFAULT_MAX_DEPTH = 20
 
 const FACES = [
   "U",
@@ -28,6 +28,8 @@ const FACES = [
   "L",
   "R",
 ] as const
+
+type FaceName = (typeof FACES)[number]
 
 function isSolved(cube: CubeState): boolean {
   return FACES.every((face) => {
@@ -40,19 +42,8 @@ function isSolved(cube: CubeState): boolean {
   })
 }
 
-function cubeKey(cube: CubeState): string {
-  return [
-    ...cube.U,
-    ...cube.D,
-    ...cube.F,
-    ...cube.B,
-    ...cube.L,
-    ...cube.R,
-  ].join("")
-}
-
-function moveFace(move: Move): string {
-  return move[0]
+function moveFace(move: Move): FaceName {
+  return move[0] as FaceName
 }
 
 function shouldSkipMove(
@@ -63,164 +54,92 @@ function shouldSkipMove(
     return false
   }
 
-  return (
-    moveFace(move) ===
-    moveFace(previousMove)
-  )
+  const currentFace = moveFace(move)
+  const previousFace = moveFace(previousMove)
+
+  /*
+   * Never make two consecutive turns
+   * of the same face.
+   */
+  if (currentFace === previousFace) {
+    return true
+  }
+
+  /*
+   * Avoid searching both orders of moves
+   * on opposite faces.
+   *
+   * Example:
+   *
+   * U D
+   * D U
+   *
+   * produce equivalent search branches.
+   */
+  if (
+    (currentFace === "U" && previousFace === "D") ||
+    (currentFace === "D" && previousFace === "U")
+  ) {
+    return currentFace < previousFace
+  }
+
+  if (
+    (currentFace === "F" && previousFace === "B") ||
+    (currentFace === "B" && previousFace === "F")
+  ) {
+    return currentFace < previousFace
+  }
+
+  if (
+    (currentFace === "L" && previousFace === "R") ||
+    (currentFace === "R" && previousFace === "L")
+  ) {
+    return currentFace < previousFace
+  }
+
+  return false
 }
 
-type SearchNode = {
-  cube: CubeState
-  path: Move[]
-}
+function countMisplacedStickers(
+  cube: CubeState,
+): number {
+  let misplaced = 0
 
-function buildForwardSearch(
-  start: CubeState,
-  depth: number,
-): Map<string, Move[]> {
-  const states = new Map<string, Move[]>()
+  for (const face of FACES) {
+    const stickers = cube[face]
+    const center = stickers[4]
 
-  states.set(cubeKey(start), [])
+    for (let index = 0; index < 9; index++) {
+      if (index === 4) {
+        continue
+      }
 
-  let frontier: SearchNode[] = [
-    {
-      cube: start,
-      path: [],
-    },
-  ]
-
-  for (let level = 0; level < depth; level++) {
-    const nextFrontier: SearchNode[] = []
-
-    for (const node of frontier) {
-      const previousMove =
-        node.path[node.path.length - 1]
-
-      for (const move of SEARCH_MOVES) {
-        if (
-          shouldSkipMove(
-            move,
-            previousMove,
-          )
-        ) {
-          continue
-        }
-
-        const nextCube = applyMove(
-          node.cube,
-          move,
-        )
-
-        const key = cubeKey(nextCube)
-
-        if (states.has(key)) {
-          continue
-        }
-
-        const path = [
-          ...node.path,
-          move,
-        ]
-
-        states.set(key, path)
-
-        nextFrontier.push({
-          cube: nextCube,
-          path,
-        })
+      if (stickers[index] !== center) {
+        misplaced++
       }
     }
-
-    frontier = nextFrontier
   }
 
-  return states
+  return misplaced
 }
 
-function searchBackward(
-  start: CubeState,
-  depth: number,
-  forward: Map<string, Move[]>,
-): Move[] | null {
-  const rootKey = cubeKey(start)
+/*
+ * A simple admissible lower-bound heuristic.
+ *
+ * Each face turn can affect at most 20 stickers.
+ *
+ * Therefore:
+ *
+ * misplaced / 20
+ *
+ * is a lower bound on the number of moves needed.
+ *
+ * We round upward.
+ */
+function heuristic(cube: CubeState): number {
+  const misplaced = countMisplacedStickers(cube)
 
-  if (forward.has(rootKey)) {
-    return forward.get(rootKey) ?? []
-  }
-
-  let frontier: SearchNode[] = [
-    {
-      cube: start,
-      path: [],
-    },
-  ]
-
-  const visited = new Set<string>([
-    rootKey,
-  ])
-
-  for (let level = 0; level < depth; level++) {
-    const nextFrontier: SearchNode[] = []
-
-    for (const node of frontier) {
-      const previousMove =
-        node.path[node.path.length - 1]
-
-      for (const move of SEARCH_MOVES) {
-        if (
-          shouldSkipMove(
-            move,
-            previousMove,
-          )
-        ) {
-          continue
-        }
-
-        const nextCube = applyMove(
-          node.cube,
-          move,
-        )
-
-        const key = cubeKey(nextCube)
-
-        if (visited.has(key)) {
-          continue
-        }
-
-        visited.add(key)
-
-        const path = [
-          ...node.path,
-          move,
-        ]
-
-        const forwardPath =
-          forward.get(key)
-
-        if (forwardPath) {
-          const backwardPath =
-            path
-              .slice()
-              .reverse()
-              .map(inverseMove)
-
-          return [
-            ...forwardPath,
-            ...backwardPath,
-          ]
-        }
-
-        nextFrontier.push({
-          cube: nextCube,
-          path,
-        })
-      }
-    }
-
-    frontier = nextFrontier
-  }
-
-  return null
+  return Math.ceil(misplaced / 20)
 }
 
 function inverseMove(move: Move): Move {
@@ -229,28 +148,97 @@ function inverseMove(move: Move): Move {
   }
 
   if (move.endsWith("'")) {
-    return move.slice(0, -1)
+    return move.slice(0, -1) as Move
   }
 
-  return `${move}'`
+  return `${move}'` as Move
 }
 
-function verifySolution(
-  cube: CubeState,
-  solution: Move[],
-): boolean {
-  let current = cube
+type SearchResult =
+  | {
+      found: true
+      path: Move[]
+    }
+  | {
+      found: false
+      nextBound: number
+    }
 
-  for (const move of solution) {
-    current = applyMove(
-      current,
+function search(
+  cube: CubeState,
+  g: number,
+  bound: number,
+  path: Move[],
+): SearchResult {
+  const h = heuristic(cube)
+  const f = g + h
+
+  if (f > bound) {
+    return {
+      found: false,
+      nextBound: f,
+    }
+  }
+
+  if (isSolved(cube)) {
+    return {
+      found: true,
+      path,
+    }
+  }
+
+  let nextBound = Number.POSITIVE_INFINITY
+
+  const previousMove =
+    path[path.length - 1]
+
+  for (const move of SEARCH_MOVES) {
+    if (
+      shouldSkipMove(
+        move,
+        previousMove,
+      )
+    ) {
+      continue
+    }
+
+    /*
+     * Avoid immediately undoing the previous move.
+     */
+    if (
+      previousMove &&
+      move === inverseMove(previousMove)
+    ) {
+      continue
+    }
+
+    const nextCube = applyMove(
+      cube,
       move,
+    )
+
+    const result = search(
+      nextCube,
+      g + 1,
+      bound,
+      [...path, move],
+    )
+
+    if (result.found) {
+      return result
+    }
+
+    nextBound = Math.min(
+      nextBound,
+      result.nextBound,
     )
   }
 
-  return isSolved(current)
+  return {
+    found: false,
+    nextBound,
+  }
 }
-
 export function solveCube(
   cube: CubeState,
   maxDepth: number = DEFAULT_MAX_DEPTH,
@@ -262,119 +250,35 @@ export function solveCube(
     }
   }
 
-  /*
-   * Bidirectional search.
-   *
-   * Instead of searching the entire solution tree
-   * from the scrambled cube, we search from both
-   * ends and look for a meeting point.
-   *
-   * For example:
-   *
-   *       scramble
-   *          ↓
-   *       forward
-   *          ↓
-   *       meeting point
-   *          ↑
-   *       backward
-   *          ↑
-   *       solved cube
-   */
+  let bound = heuristic(cube)
 
-  const forwardDepth =
-    Math.floor(maxDepth / 2)
-
-  const backwardDepth =
-    maxDepth - forwardDepth
-
-  const forward =
-    buildForwardSearch(
+  while (bound <= maxDepth) {
+    const result = search(
       cube,
-      forwardDepth,
+      0,
+      bound,
+      [],
     )
 
-  const solved =
-    buildForwardSearch(
-      createSolvedState(),
-      backwardDepth,
-    )
-
-  /*
-   * Search from the scrambled side against
-   * states reachable from the solved side.
-   */
-  for (const [
-    key,
-    forwardPath,
-  ] of forward.entries()) {
-    const backwardPath =
-      solved.get(key)
-
-    if (!backwardPath) {
-      continue
-    }
-
-    const solution = [
-      ...forwardPath,
-      ...backwardPath
-        .slice()
-        .reverse()
-        .map(inverseMove),
-    ]
-
-    if (
-      solution.length <= maxDepth &&
-      verifySolution(
-        cube,
-        solution,
-      )
-    ) {
+    if (result.found) {
       return {
         solved: true,
-        moves: solution,
+        moves: result.path,
       }
     }
-  }
 
-  /*
-   * The direct meeting search handles cases where
-   * the split is not enough.
-   */
-  const result =
-    searchBackward(
-      cube,
-      backwardDepth,
-      solved,
-    )
-
-  if (
-    result &&
-    result.length <= maxDepth &&
-    verifySolution(
-      cube,
-      result,
-    )
-  ) {
-    return {
-      solved: true,
-      moves: result,
+    if (
+      result.nextBound ===
+      Number.POSITIVE_INFINITY
+    ) {
+      break
     }
+
+    bound = result.nextBound
   }
 
   return {
     solved: false,
     moves: [],
-  }
-}
-
-function createSolvedState(): CubeState {
-  return {
-    U: Array(9).fill("white"),
-    D: Array(9).fill("yellow"),
-    F: Array(9).fill("green"),
-    B: Array(9).fill("blue"),
-    L: Array(9).fill("orange"),
-    R: Array(9).fill("red"),
   }
 }

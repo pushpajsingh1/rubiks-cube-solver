@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback , useEffect, useMemo, useState } from "react"
 import type { CubeColor, CubeState, FaceName } from "./cube/CubeState"
 import {
   moveU,
@@ -156,7 +156,7 @@ function App() {
     })
   }, [cube])
 
-  function applyMove(move: string) {
+  const applyMove = useCallback((move: string) => {
     if (isSolving) return
 
     const moveFunction = moves[move]
@@ -174,9 +174,9 @@ function App() {
 
     setSolution([])
     setCurrentSolutionMove(-1)
-  }
+  }, [isSolving])
 
-  function undoMove() {
+    const undoMove = useCallback(() => {
     if (isSolving || moveHistory.length === 0) return
 
     const lastMove =
@@ -203,16 +203,16 @@ function App() {
 
     setSolution([])
     setCurrentSolutionMove(-1)
-  }
+  }, [isSolving, moveHistory])
 
-  function resetCube() {
+  const resetCube = useCallback(() => {
     if (isSolving) return
 
     setCube(createSolvedCube())
     setMoveHistory([])
     setSolution([])
     setCurrentSolutionMove(-1)
-  }
+  }, [isSolving])
 
   function clearHistory() {
     if (isSolving) return
@@ -250,8 +250,8 @@ function App() {
     ]
 
     for (let i = 0; i < 20; i++) {
-      let move = ""
-      let face = ""
+      let move: string
+      let face: string
 
       do {
         move =
@@ -403,7 +403,12 @@ function App() {
         handleKeyDown,
       )
     }
-  }, [isSolving, moveHistory])
+  }, [
+  isSolving,
+  applyMove,
+  resetCube,
+  undoMove,
+])
 
   return (
     <div className="app">

@@ -18,9 +18,16 @@ const SEARCH_MOVES: Move[] = [
   "B", "B'", "B2",
 ]
 
-const DEFAULT_MAX_DEPTH = 8
+const DEFAULT_MAX_DEPTH = 12
 
-const FACES = ["U", "D", "F", "B", "L", "R"] as const
+const FACES = [
+  "U",
+  "D",
+  "F",
+  "B",
+  "L",
+  "R",
+] as const
 
 function isSolved(cube: CubeState): boolean {
   return FACES.every((face) => {
@@ -34,14 +41,14 @@ function isSolved(cube: CubeState): boolean {
 }
 
 function cubeKey(cube: CubeState): string {
-  return JSON.stringify([
-    cube.U,
-    cube.D,
-    cube.F,
-    cube.B,
-    cube.L,
-    cube.R,
-  ])
+  return [
+    ...cube.U,
+    ...cube.D,
+    ...cube.F,
+    ...cube.B,
+    ...cube.L,
+    ...cube.R,
+  ].join("")
 }
 
 function moveFace(move: Move): string {
@@ -56,95 +63,192 @@ function shouldSkipMove(
     return false
   }
 
-  return moveFace(move) === moveFace(previousMove)
+  return (
+    moveFace(move) ===
+    moveFace(previousMove)
+  )
 }
 
-function misplacedStickers(cube: CubeState): number {
-  let count = 0
-
-  for (const face of FACES) {
-    const stickers = cube[face]
-    const center = stickers[4]
-
-    for (let i = 0; i < 9; i++) {
-      if (i !== 4 && stickers[i] !== center) {
-        count++
-      }
-    }
-  }
-
-  return count
+type SearchNode = {
+  cube: CubeState
+  path: Move[]
 }
 
-function orderedMoves(
-  cube: CubeState,
-  previousMove?: Move,
-): Move[] {
-  return SEARCH_MOVES
-    .filter(
-      (move) =>
-        !shouldSkipMove(move, previousMove),
-    )
-    .map((move) => {
-      const nextCube = applyMove(cube, move)
-
-      return {
-        move,
-        score: misplacedStickers(nextCube),
-      }
-    })
-    .sort((a, b) => a.score - b.score)
-    .map((entry) => entry.move)
-}
-
-function search(
-  cube: CubeState,
+function buildForwardSearch(
+  start: CubeState,
   depth: number,
-  maxDepth: number,
-  path: Move[],
-  previousMove: Move | undefined,
-  visited: Map<string, number>,
-): Move[] | null {
-  if (isSolved(cube)) {
-    return path
-  }
+): Map<string, Move[]> {
+  const states = new Map<string, Move[]>()
 
-  if (depth >= maxDepth) {
-    return null
-  }
+  states.set(cubeKey(start), [])
 
-  const key = cubeKey(cube)
-  const previousDepth = visited.get(key)
+  let frontier: SearchNode[] = [
+    {
+      cube: start,
+      path: [],
+    },
+  ]
 
-  if (
-    previousDepth !== undefined &&
-    previousDepth <= depth
-  ) {
-    return null
-  }
+  for (let level = 0; level < depth; level++) {
+    const nextFrontier: SearchNode[] = []
 
-  visited.set(key, depth)
+    for (const node of frontier) {
+      const previousMove =
+        node.path[node.path.length - 1]
 
-  const moves = orderedMoves(cube, previousMove)
+      for (const move of SEARCH_MOVES) {
+        if (
+          shouldSkipMove(
+            move,
+            previousMove,
+          )
+        ) {
+          continue
+        }
 
-  for (const move of moves) {
-    const nextCube = applyMove(cube, move)
+        const nextCube = applyMove(
+          node.cube,
+          move,
+        )
 
-    const result = search(
-      nextCube,
-      depth + 1,
-      maxDepth,
-      [...path, move],
-      move,
-      visited,
-    )
+        const key = cubeKey(nextCube)
 
-    if (result !== null) {
-      return result
+        if (states.has(key)) {
+          continue
+        }
+
+        const path = [
+          ...node.path,
+          move,
+        ]
+
+        states.set(key, path)
+
+        nextFrontier.push({
+          cube: nextCube,
+          path,
+        })
+      }
     }
+
+    frontier = nextFrontier
+  }
+
+  return states
+}
+
+function searchBackward(
+  start: CubeState,
+  depth: number,
+  forward: Map<string, Move[]>,
+): Move[] | null {
+  const rootKey = cubeKey(start)
+
+  if (forward.has(rootKey)) {
+    return forward.get(rootKey) ?? []
+  }
+
+  let frontier: SearchNode[] = [
+    {
+      cube: start,
+      path: [],
+    },
+  ]
+
+  const visited = new Set<string>([
+    rootKey,
+  ])
+
+  for (let level = 0; level < depth; level++) {
+    const nextFrontier: SearchNode[] = []
+
+    for (const node of frontier) {
+      const previousMove =
+        node.path[node.path.length - 1]
+
+      for (const move of SEARCH_MOVES) {
+        if (
+          shouldSkipMove(
+            move,
+            previousMove,
+          )
+        ) {
+          continue
+        }
+
+        const nextCube = applyMove(
+          node.cube,
+          move,
+        )
+
+        const key = cubeKey(nextCube)
+
+        if (visited.has(key)) {
+          continue
+        }
+
+        visited.add(key)
+
+        const path = [
+          ...node.path,
+          move,
+        ]
+
+        const forwardPath =
+          forward.get(key)
+
+        if (forwardPath) {
+          const backwardPath =
+            path
+              .slice()
+              .reverse()
+              .map(inverseMove)
+
+          return [
+            ...forwardPath,
+            ...backwardPath,
+          ]
+        }
+
+        nextFrontier.push({
+          cube: nextCube,
+          path,
+        })
+      }
+    }
+
+    frontier = nextFrontier
   }
 
   return null
+}
+
+function inverseMove(move: Move): Move {
+  if (move.endsWith("2")) {
+    return move
+  }
+
+  if (move.endsWith("'")) {
+    return move.slice(0, -1)
+  }
+
+  return `${move}'`
+}
+
+function verifySolution(
+  cube: CubeState,
+  solution: Move[],
+): boolean {
+  let current = cube
+
+  for (const move of solution) {
+    current = applyMove(
+      current,
+      move,
+    )
+  }
+
+  return isSolved(current)
 }
 
 export function solveCube(
@@ -158,28 +262,119 @@ export function solveCube(
     }
   }
 
-  for (let depth = 1; depth <= maxDepth; depth++) {
-    const visited = new Map<string, number>()
+  /*
+   * Bidirectional search.
+   *
+   * Instead of searching the entire solution tree
+   * from the scrambled cube, we search from both
+   * ends and look for a meeting point.
+   *
+   * For example:
+   *
+   *       scramble
+   *          ↓
+   *       forward
+   *          ↓
+   *       meeting point
+   *          ↑
+   *       backward
+   *          ↑
+   *       solved cube
+   */
 
-    const result = search(
+  const forwardDepth =
+    Math.floor(maxDepth / 2)
+
+  const backwardDepth =
+    maxDepth - forwardDepth
+
+  const forward =
+    buildForwardSearch(
       cube,
-      0,
-      depth,
-      [],
-      undefined,
-      visited,
+      forwardDepth,
     )
 
-    if (result !== null) {
+  const solved =
+    buildForwardSearch(
+      createSolvedState(),
+      backwardDepth,
+    )
+
+  /*
+   * Search from the scrambled side against
+   * states reachable from the solved side.
+   */
+  for (const [
+    key,
+    forwardPath,
+  ] of forward.entries()) {
+    const backwardPath =
+      solved.get(key)
+
+    if (!backwardPath) {
+      continue
+    }
+
+    const solution = [
+      ...forwardPath,
+      ...backwardPath
+        .slice()
+        .reverse()
+        .map(inverseMove),
+    ]
+
+    if (
+      solution.length <= maxDepth &&
+      verifySolution(
+        cube,
+        solution,
+      )
+    ) {
       return {
         solved: true,
-        moves: result,
+        moves: solution,
       }
+    }
+  }
+
+  /*
+   * The direct meeting search handles cases where
+   * the split is not enough.
+   */
+  const result =
+    searchBackward(
+      cube,
+      backwardDepth,
+      solved,
+    )
+
+  if (
+    result &&
+    result.length <= maxDepth &&
+    verifySolution(
+      cube,
+      result,
+    )
+  ) {
+    return {
+      solved: true,
+      moves: result,
     }
   }
 
   return {
     solved: false,
     moves: [],
+  }
+}
+
+function createSolvedState(): CubeState {
+  return {
+    U: Array(9).fill("white"),
+    D: Array(9).fill("yellow"),
+    F: Array(9).fill("green"),
+    B: Array(9).fill("blue"),
+    L: Array(9).fill("orange"),
+    R: Array(9).fill("red"),
   }
 }

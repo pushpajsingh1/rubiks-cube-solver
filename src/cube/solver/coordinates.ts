@@ -1,4 +1,9 @@
-import type { CubeState, CubeColor } from "../CubeState"
+import type {
+  CubeColor,
+  CubeState,
+  FaceName,
+} from "../CubeState"
+
 import {
   applyMove,
   type Move,
@@ -35,80 +40,27 @@ export type CubeCoordinates = {
   edgeOrientation: number[]
 }
 
-export const CORNERS: CornerName[] = [
-  "URF",
-  "UFL",
-  "ULB",
-  "UBR",
-  "DFR",
-  "DLF",
-  "DBL",
-  "DRB",
-]
-
-export const EDGES: EdgeName[] = [
-  "UR",
-  "UF",
-  "UL",
-  "UB",
-  "DR",
-  "DF",
-  "DL",
-  "DB",
-  "FR",
-  "FL",
-  "BL",
-  "BR",
-]
-
-const CORNER_COLORS: Record<
-  CornerName,
-  [CubeColor, CubeColor, CubeColor]
-> = {
-  URF: ["white", "red", "green"],
-  UFL: ["white", "green", "orange"],
-  ULB: ["white", "orange", "blue"],
-  UBR: ["white", "blue", "red"],
-  DFR: ["yellow", "green", "red"],
-  DLF: ["yellow", "orange", "green"],
-  DBL: ["yellow", "blue", "orange"],
-  DRB: ["yellow", "red", "blue"],
-}
-
-const EDGE_COLORS: Record<
-  EdgeName,
-  [CubeColor, CubeColor]
-> = {
-  UR: ["white", "red"],
-  UF: ["white", "green"],
-  UL: ["white", "orange"],
-  UB: ["white", "blue"],
-  DR: ["yellow", "red"],
-  DF: ["yellow", "green"],
-  DL: ["yellow", "orange"],
-  DB: ["yellow", "blue"],
-  FR: ["green", "red"],
-  FL: ["green", "orange"],
-  BL: ["blue", "orange"],
-  BR: ["blue", "red"],
-}
-
 type Sticker = {
-  face: keyof CubeState
+  face: FaceName
   index: number
 }
 
 /*
- * Sticker positions follow the same 3x3 face indexing used
- * by the existing cube implementation:
+ * IMPORTANT
  *
- * 0 1 2
- * 3 4 5
- * 6 7 8
+ * These positions match the cube layout used by this project.
  *
- * These positions are only used to READ the cube.
+ * Face:
+ *
+ *  0 1 2
+ *  3 4 5
+ *  6 7 8
+ *
+ * The coordinate layer deliberately keeps this mapping isolated
+ * from the UI and move implementation.
  */
-const CORNER_STICKERS: Record<
+
+const CORNER_POSITIONS: Record<
   CornerName,
   [Sticker, Sticker, Sticker]
 > = {
@@ -161,7 +113,7 @@ const CORNER_STICKERS: Record<
   ],
 }
 
-const EDGE_STICKERS: Record<
+const EDGE_POSITIONS: Record<
   EdgeName,
   [Sticker, Sticker]
 > = {
@@ -226,6 +178,67 @@ const EDGE_STICKERS: Record<
   ],
 }
 
+export const CORNERS: CornerName[] = [
+  "URF",
+  "UFL",
+  "ULB",
+  "UBR",
+  "DFR",
+  "DLF",
+  "DBL",
+  "DRB",
+]
+
+export const EDGES: EdgeName[] = [
+  "UR",
+  "UF",
+  "UL",
+  "UB",
+  "DR",
+  "DF",
+  "DL",
+  "DB",
+  "FR",
+  "FL",
+  "BL",
+  "BR",
+]
+
+const CORNER_COLORS: Record<
+  CornerName,
+  CubeColor[]
+> = {
+  URF: ["white", "red", "green"],
+  UFL: ["white", "green", "orange"],
+  ULB: ["white", "orange", "blue"],
+  UBR: ["white", "blue", "red"],
+
+  DFR: ["yellow", "green", "red"],
+  DLF: ["yellow", "orange", "green"],
+  DBL: ["yellow", "blue", "orange"],
+  DRB: ["yellow", "red", "blue"],
+}
+
+const EDGE_COLORS: Record<
+  EdgeName,
+  CubeColor[]
+> = {
+  UR: ["white", "red"],
+  UF: ["white", "green"],
+  UL: ["white", "orange"],
+  UB: ["white", "blue"],
+
+  DR: ["yellow", "red"],
+  DF: ["yellow", "green"],
+  DL: ["yellow", "orange"],
+  DB: ["yellow", "blue"],
+
+  FR: ["green", "red"],
+  FL: ["green", "orange"],
+  BL: ["blue", "orange"],
+  BR: ["blue", "red"],
+}
+
 function getSticker(
   cube: CubeState,
   sticker: Sticker,
@@ -233,94 +246,116 @@ function getSticker(
   return cube[sticker.face][sticker.index]
 }
 
-function containsSameColors(
+function sameColors(
   actual: CubeColor[],
   expected: CubeColor[],
 ): boolean {
-  return expected.every((color) =>
-    actual.includes(color),
+  if (actual.length !== expected.length) {
+    return false
+  }
+
+  const a = [...actual].sort()
+  const b = [...expected].sort()
+
+  return a.every(
+    (value, index) => value === b[index],
   )
 }
 
-function findCornerPiece(
+function findCorner(
   colors: CubeColor[],
 ): number {
-  return CORNERS.findIndex((corner) =>
-    containsSameColors(
-      colors,
-      CORNER_COLORS[corner],
-    ),
-  )
+  for (let i = 0; i < CORNERS.length; i++) {
+    if (
+      sameColors(
+        colors,
+        CORNER_COLORS[CORNERS[i]],
+      )
+    ) {
+      return i
+    }
+  }
+
+  return -1
 }
 
-function findEdgePiece(
+function findEdge(
   colors: CubeColor[],
 ): number {
-  return EDGES.findIndex((edge) =>
-    containsSameColors(
-      colors,
-      EDGE_COLORS[edge],
-    ),
-  )
+  for (let i = 0; i < EDGES.length; i++) {
+    if (
+      sameColors(
+        colors,
+        EDGE_COLORS[EDGES[i]],
+      )
+    ) {
+      return i
+    }
+  }
+
+  return -1
 }
 
-/**
- * Corner orientation:
+/*
+ * Corner orientation.
  *
- * 0 = U/D sticker is in the U/D position
- * 1 = U/D sticker is on the side
- * 2 = U/D sticker is on the other side
+ * 0 = white/yellow sticker is on the U/D position
+ * 1 = twisted once
+ * 2 = twisted twice
+ *
+ * We keep the calculation local to this coordinate layer.
  */
 function getCornerOrientation(
   colors: CubeColor[],
 ): number {
-  const index = colors.findIndex(
+  const udIndex = colors.findIndex(
     (color) =>
       color === "white" ||
       color === "yellow",
   )
 
-  if (index === 0) return 0
-  if (index === 1) return 1
+  if (udIndex === 0) {
+    return 0
+  }
+
+  if (udIndex === 1) {
+    return 1
+  }
 
   return 2
 }
 
-/**
- * Edge orientation:
+/*
+ * Edge orientation.
  *
- * For the coordinate system we use:
- *
- * 0 = correctly oriented
- * 1 = flipped
- *
- * U/D edges are oriented according to their
- * U/D sticker. Middle-layer edges are oriented
- * according to their F/B sticker.
+ * The first coordinate slot is the U/D sticker
+ * for U/D-layer edges.
  */
 function getEdgeOrientation(
   colors: CubeColor[],
 ): number {
-  const first = colors[0]
-  const second = colors[1]
-
-  const firstIsUD =
-    first === "white" ||
-    first === "yellow"
-
-  const secondIsUD =
-    second === "white" ||
-    second === "yellow"
-
-  if (firstIsUD || secondIsUD) {
-    return firstIsUD ? 0 : 1
+  if (
+    colors[0] === "white" ||
+    colors[0] === "yellow"
+  ) {
+    return 0
   }
 
-  const firstIsFB =
-    first === "green" ||
-    first === "blue"
+  if (
+    colors[1] === "white" ||
+    colors[1] === "yellow"
+  ) {
+    return 1
+  }
 
-  return firstIsFB ? 0 : 1
+  if (
+    colors[0] === "green" ||
+    colors[0] === "blue"
+  ) {
+    return 0
+  }
+
+  return 1
 }
 
 export function cubeToCoordinates(
@@ -329,14 +364,17 @@ export function cubeToCoordinates(
   const cornerPermutation: number[] = []
   const cornerOrientation: number[] = []
 
+  const edgePermutation: number[] = []
+  const edgeOrientation: number[] = []
+
   for (const position of CORNERS) {
-    const stickers = CORNER_STICKERS[position]
+    const colors =
+      CORNER_POSITIONS[position].map(
+        (sticker) =>
+          getSticker(cube, sticker),
+      )
 
-    const colors = stickers.map((sticker) =>
-      getSticker(cube, sticker),
-    )
-
-    const piece = findCornerPiece(colors)
+    const piece = findCorner(colors)
 
     if (piece === -1) {
       throw new Error(
@@ -345,22 +383,20 @@ export function cubeToCoordinates(
     }
 
     cornerPermutation.push(piece)
+
     cornerOrientation.push(
       getCornerOrientation(colors),
     )
   }
 
-  const edgePermutation: number[] = []
-  const edgeOrientation: number[] = []
-
   for (const position of EDGES) {
-    const stickers = EDGE_STICKERS[position]
+    const colors =
+      EDGE_POSITIONS[position].map(
+        (sticker) =>
+          getSticker(cube, sticker),
+      )
 
-    const colors = stickers.map((sticker) =>
-      getSticker(cube, sticker),
-    )
-
-    const piece = findEdgePiece(colors)
+    const piece = findEdge(colors)
 
     if (piece === -1) {
       throw new Error(
@@ -369,6 +405,7 @@ export function cubeToCoordinates(
     }
 
     edgePermutation.push(piece)
+
     edgeOrientation.push(
       getEdgeOrientation(colors),
     )
@@ -382,73 +419,96 @@ export function cubeToCoordinates(
   }
 }
 
-/**
- * Convert coordinates back into a cube.
+/*
+ * Reconstruct a cube from coordinates.
  *
- * This function is deliberately used only for
- * coordinate round-trip tests at this stage.
+ * This is intentionally implemented using the coordinate
+ * positions rather than applying moves backwards.
  */
 export function coordinatesToCube(
   coordinates: CubeCoordinates,
 ): CubeState {
-  const cube = {
-    U: Array(9).fill("white") as CubeColor[],
-    D: Array(9).fill("yellow") as CubeColor[],
-    F: Array(9).fill("green") as CubeColor[],
-    B: Array(9).fill("blue") as CubeColor[],
-    L: Array(9).fill("orange") as CubeColor[],
-    R: Array(9).fill("red") as CubeColor[],
+  const cube: CubeState = {
+    U: Array(9).fill("white"),
+    D: Array(9).fill("yellow"),
+    F: Array(9).fill("green"),
+    B: Array(9).fill("blue"),
+    L: Array(9).fill("orange"),
+    R: Array(9).fill("red"),
   }
 
-  for (let position = 0; position < 8; position++) {
+  for (let positionIndex = 0; positionIndex < CORNERS.length; positionIndex++) {
     const pieceIndex =
-      coordinates.cornerPermutation[position]
+      coordinates.cornerPermutation[positionIndex]
 
-    const piece = CORNERS[pieceIndex]
-    const colors = CORNER_COLORS[piece]
-    const stickers = CORNER_STICKERS[
-      CORNERS[position]
-    ]
+    const position =
+      CORNERS[positionIndex]
+
+    const colors =
+      CORNER_COLORS[
+        CORNERS[pieceIndex]
+      ]
 
     const orientation =
-      coordinates.cornerOrientation[position]
+      coordinates.cornerOrientation[positionIndex] % 3
 
-    const ordered =
-      orientation === 0
-        ? colors
-        : orientation === 1
-          ? [colors[2], colors[0], colors[1]]
-          : [colors[1], colors[2], colors[0]]
+    const rotated = rotateArray(
+      colors,
+      orientation,
+    )
 
-    stickers.forEach((sticker, index) => {
-      cube[sticker.face][sticker.index] =
-        ordered[index]
-    })
+    const stickers =
+      CORNER_POSITIONS[position]
+
+    for (let i = 0; i < 3; i++) {
+      cube[stickers[i].face][stickers[i].index] =
+        rotated[i]
+    }
   }
 
-  for (let position = 0; position < 12; position++) {
+  for (let positionIndex = 0; positionIndex < EDGES.length; positionIndex++) {
     const pieceIndex =
-      coordinates.edgePermutation[position]
+      coordinates.edgePermutation[positionIndex]
 
-    const piece = EDGES[pieceIndex]
-    const colors = EDGE_COLORS[piece]
-    const stickers = EDGE_STICKERS[EDGES[position]]
+    const position =
+      EDGES[positionIndex]
+
+    const colors =
+      EDGE_COLORS[
+        EDGES[pieceIndex]
+      ]
 
     const orientation =
-      coordinates.edgeOrientation[position]
+      coordinates.edgeOrientation[positionIndex] % 2
 
-    const ordered =
+    const rotated =
       orientation === 0
         ? colors
         : [colors[1], colors[0]]
 
-    stickers.forEach((sticker, index) => {
-      cube[sticker.face][sticker.index] =
-        ordered[index]
-    })
+    const stickers =
+      EDGE_POSITIONS[position]
+
+    for (let i = 0; i < 2; i++) {
+      cube[stickers[i].face][stickers[i].index] =
+        rotated[i]
+    }
   }
 
   return cube
+}
+
+function rotateArray<T>(
+  values: T[],
+  amount: number,
+): T[] {
+  const result = [...values]
+
+  for (let i = 0; i < amount; i++) {
+    result.push(result.shift()!)
+  }
+
+  return result
 }
 
 export function applyMovesToCoordinates(
@@ -458,7 +518,10 @@ export function applyMovesToCoordinates(
   let current = cube
 
   for (const move of moves) {
-    current = applyMove(current, move)
+    current = applyMove(
+      current,
+      move,
+    )
   }
 
   return cubeToCoordinates(current)

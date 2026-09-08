@@ -41,18 +41,6 @@ function isPermutation(
   )
 }
 
-function scramble(
-  moves: Move[],
-) {
-  let cube = createSolvedCube()
-
-  for (const move of moves) {
-    cube = applyMove(cube, move)
-  }
-
-  return cube
-}
-
 describe("coordinate invariants", () => {
   it("should represent the solved cube", () => {
     const coordinates =

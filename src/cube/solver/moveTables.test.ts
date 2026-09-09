@@ -154,4 +154,120 @@ describe("move tables", () => {
       expect(result).toEqual(solved)
     }
   })
+    it("should match sticker moves after a scramble", () => {
+    const scramble = [
+      "R",
+      "U",
+      "R'",
+      "U'",
+      "F",
+      "R",
+      "F'",
+      "U2",
+      "L",
+      "D",
+      "B'",
+      "R2",
+    ] as const
+
+    const stickerCoordinates =
+      applyMovesToCoordinates(
+        createSolvedCube(),
+        [...scramble],
+      )
+
+    let coordinateState = solvedCoordinates()
+
+    for (const move of scramble) {
+      const moveIndex =
+        SOLVER_MOVES.indexOf(move)
+
+      expect(moveIndex).toBeGreaterThanOrEqual(0)
+
+      coordinateState =
+        applyCoordinateMove(
+          coordinateState,
+          moveIndex,
+        )
+    }
+
+    expect(coordinateState).toEqual(
+      stickerCoordinates,
+    )
+  })
+    it("should match sticker moves across multiple sequences", () => {
+    const sequences = [
+      [
+        "U",
+        "R",
+        "F",
+        "L'",
+        "D2",
+        "B",
+        "R2",
+        "U'",
+      ],
+      [
+        "F",
+        "F",
+        "R'",
+        "D",
+        "L2",
+        "B'",
+        "U2",
+        "R",
+      ],
+      [
+        "R",
+        "U",
+        "R'",
+        "U'",
+        "F",
+        "R",
+        "F'",
+        "D",
+        "L",
+        "B2",
+      ],
+      [
+        "B",
+        "L",
+        "D'",
+        "R2",
+        "F'",
+        "U",
+        "B'",
+        "L2",
+        "D2",
+      ],
+    ] as const
+
+    for (const sequence of sequences) {
+      const stickerCoordinates =
+        applyMovesToCoordinates(
+          createSolvedCube(),
+          [...sequence],
+        )
+
+      let coordinateState =
+        solvedCoordinates()
+
+      for (const move of sequence) {
+        const moveIndex =
+          SOLVER_MOVES.indexOf(move)
+
+        expect(moveIndex).toBeGreaterThanOrEqual(0)
+
+        coordinateState =
+          applyCoordinateMove(
+            coordinateState,
+            moveIndex,
+          )
+      }
+
+      expect(coordinateState).toEqual(
+        stickerCoordinates,
+      )
+    }
+  })
 })

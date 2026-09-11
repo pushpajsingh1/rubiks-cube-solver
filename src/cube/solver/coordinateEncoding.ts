@@ -138,7 +138,75 @@ export function encodeESlicePermutation(
 
   return rankPermutation(values)
 }
+export function decodeCornerOrientation(
+  index: number,
+): number[] {
+  if (index < 0 || index >= 3 ** 7) {
+    throw new Error(
+      `Invalid corner orientation index: ${index}`,
+    )
+  }
 
+  const orientation = Array(8).fill(0)
+  let remaining = index
+
+  for (let position = 6; position >= 0; position--) {
+    orientation[position] = remaining % 3
+    remaining = Math.floor(remaining / 3)
+  }
+
+  const sum = orientation
+    .slice(0, 7)
+    .reduce((total, value) => total + value, 0)
+
+  orientation[7] = (3 - (sum % 3)) % 3
+
+  return orientation
+}
+
+export function decodeESliceEdgePermutation(
+  index: number,
+): number[] {
+  if (index < 0 || index > 494) {
+    throw new Error(
+      `Invalid E-slice index: ${index}`,
+    )
+  }
+
+  let rank = 494 - index
+  const positions = Array(4).fill(0)
+  let maximumPosition = 11
+
+  for (let count = 4; count >= 1; count--) {
+    let position = maximumPosition
+
+    while (
+      choose(position, count) > rank
+    ) {
+      position--
+    }
+
+    positions[count - 1] = position
+    rank -= choose(position, count)
+    maximumPosition = position - 1
+  }
+
+  const eSlicePositions = new Set(positions)
+
+  const edgePermutation: number[] = []
+  let eSlicePiece = 8
+  let otherPiece = 0
+
+  for (let position = 0; position < 12; position++) {
+    if (eSlicePositions.has(position)) {
+      edgePermutation.push(eSlicePiece++)
+    } else {
+      edgePermutation.push(otherPiece++)
+    }
+  }
+
+  return edgePermutation
+}
 function choose(
   n: number,
   k: number,

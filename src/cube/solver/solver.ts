@@ -3,7 +3,11 @@ import {
   applyMove,
   type Move,
 } from "../notation"
-
+import { cubeToCoordinates } from "./coordinates"
+import {
+  getCornerOrientationDistance,
+  getESliceDistance,
+} from "./pruningTables"
 export type SolverResult = {
   solved: boolean
   moves: Move[]
@@ -137,9 +141,17 @@ function countMisplacedStickers(
  * We round upward.
  */
 function heuristic(cube: CubeState): number {
-  const misplaced = countMisplacedStickers(cube)
+  const stickerDistance = Math.ceil(
+    countMisplacedStickers(cube) / 20,
+  )
 
-  return Math.ceil(misplaced / 20)
+  const coordinates = cubeToCoordinates(cube)
+
+  return Math.max(
+    stickerDistance,
+    getCornerOrientationDistance(coordinates),
+    getESliceDistance(coordinates),
+  )
 }
 
 function inverseMove(move: Move): Move {

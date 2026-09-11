@@ -11,6 +11,8 @@ import {
   encodeCornerPermutation,
   encodeUDEdgePermutation,
   encodeESlicePermutation,
+  decodeESliceEdgePermutation,
+  decodeCornerOrientation,
 } from "./coordinateEncoding"
 
 import {
@@ -52,8 +54,29 @@ describe("coordinate encoding", () => {
     expect(
       encodeESlicePermutation(coordinates),
     ).toBe(0)
+  
   })
+  it("round-trips corner orientation and E-slice indexes", () => {
+    for (let index = 0; index < 3 ** 7; index++) {
+      const coordinates = solvedCoordinates()
 
+      coordinates.cornerOrientation =
+        decodeCornerOrientation(index)
+
+      expect(
+        encodeCornerOrientation(coordinates),
+      ).toBe(index)
+    }
+
+    for (let index = 0; index < 495; index++) {
+      const coordinates = solvedCoordinates()
+
+      coordinates.edgePermutation =
+        decodeESliceEdgePermutation(index)
+
+      expect(encodeESlice(coordinates)).toBe(index)
+    }
+  })
   it("should produce valid ranges", () => {
     const scrambles = [
       ["R"],

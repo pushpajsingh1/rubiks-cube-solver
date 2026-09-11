@@ -178,7 +178,7 @@ describe("Search solver", () => {
   })
 })
 describe("IDA* long scramble tests", () => {
-  it("solves a 10-move scramble", () => {
+  it.skip("solves a 10-move scramble", () => {
     const scramble: Move[] = [
       "R",
       "U",

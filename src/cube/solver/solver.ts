@@ -5,9 +5,14 @@ import {
 } from "../notation"
 import { cubeToCoordinates } from "./coordinates"
 import {
+  encodeCornerOrientation,
+  encodeESlice,
+} from "./coordinateEncoding"
+import {
   getCornerOrientationDistance,
   getESliceDistance,
 } from "./pruningTables"
+
 export type SolverResult = {
   solved: boolean
   moves: Move[]
@@ -128,17 +133,10 @@ function countMisplacedStickers(
 }
 
 /*
- * A simple admissible lower-bound heuristic.
+ * Admissible lower-bound heuristic.
  *
- * Each face turn can affect at most 20 stickers.
- *
- * Therefore:
- *
- * misplaced / 20
- *
- * is a lower bound on the number of moves needed.
- *
- * We round upward.
+ * The important part here is that the pruning-table
+ * functions receive encoded numeric coordinates.
  */
 function heuristic(cube: CubeState): number {
   const stickerDistance = Math.ceil(
@@ -147,10 +145,20 @@ function heuristic(cube: CubeState): number {
 
   const coordinates = cubeToCoordinates(cube)
 
+  const cornerOrientation =
+    encodeCornerOrientation(coordinates)
+
+  const eSlice =
+    encodeESlice(coordinates)
+
   return Math.max(
     stickerDistance,
-    getCornerOrientationDistance(coordinates),
-    getESliceDistance(coordinates),
+    getCornerOrientationDistance(
+      cornerOrientation,
+    ),
+    getESliceDistance(
+      eSlice,
+    ),
   )
 }
 
@@ -251,6 +259,7 @@ function search(
     nextBound,
   }
 }
+
 export function solveCube(
   cube: CubeState,
   maxDepth: number = DEFAULT_MAX_DEPTH,

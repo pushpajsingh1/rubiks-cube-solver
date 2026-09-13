@@ -1,234 +1,196 @@
-import type { CubeCoordinates } from "./coordinates"
 import {
-  applyCoordinateMove,
-  SOLVER_MOVES,
-  solvedCoordinates,
-} from "./moveTables"
-import {
-  decodeCornerOrientation,
-  decodeESliceEdgePermutation,
-  encodeCornerOrientation,
-  encodeESlice,
-} from "./coordinateEncoding"
+  EDGE_ORIENTATION_COUNT,
+  ESLICE_COUNT,
+  CORNER_ORIENTATION_COUNT,
+  MOVE_COUNT,
+  nextCornerOrientation,
+  nextEdgeOrientation,
+  nextESlice,
+} from "./coordinateMoveTables"
 
-export const CORNER_ORIENTATION_TABLE_SIZE = 3 ** 7
+export const EDGE_ORIENTATION_PRUNING_SIZE =
+  EDGE_ORIENTATION_COUNT
 
-function buildCornerOrientationPruningTable(): Int8Array {
-  const distances = new Int8Array(
-    CORNER_ORIENTATION_TABLE_SIZE,
-  )
+export const CORNER_ORIENTATION_PRUNING_SIZE =
+  CORNER_ORIENTATION_COUNT
 
-  distances.fill(-1)
+export const ESLICE_PRUNING_SIZE =
+  ESLICE_COUNT
 
-  const queue: CubeCoordinates[] = [
-    solvedCoordinates(),
-  ]
+export const PHASE1_PRUNING_SIZE =
+  CORNER_ORIENTATION_COUNT * ESLICE_COUNT
 
-  distances[
-    encodeCornerOrientation(queue[0])
-  ] = 0
+function buildSingleCoordinatePruningTable(
+  size: number,
+  nextCoordinate: (
+    coordinate: number,
+    moveIndex: number,
+  ) => number,
+): Uint8Array {
+  const table = new Uint8Array(size)
 
-  for (let head = 0; head < queue.length; head++) {
-    const current = queue[head]
+  table.fill(255)
+  table[0] = 0
 
-    const currentIndex =
-      encodeCornerOrientation(current)
-
-    const nextDistance =
-      distances[currentIndex] + 1
-
-    for (
-      let moveIndex = 0;
-      moveIndex < SOLVER_MOVES.length;
-      moveIndex++
-    ) {
-      const next = applyCoordinateMove(
-        current,
-        moveIndex,
-      )
-
-      const nextIndex =
-        encodeCornerOrientation(next)
-
-      if (distances[nextIndex] !== -1) {
-        continue
-      }
-
-      distances[nextIndex] = nextDistance
-      queue.push(next)
-    }
-  }
-
-  return distances
-}
-
-export const CORNER_ORIENTATION_PRUNING_TABLE =
-  buildCornerOrientationPruningTable()
-
-export function getCornerOrientationDistance(
-  coordinates: CubeCoordinates,
-): number {
-  return CORNER_ORIENTATION_PRUNING_TABLE[
-    encodeCornerOrientation(coordinates)
-  ]
-}
-export const ESLICE_TABLE_SIZE = 495
-
-function buildESlicePruningTable(): Int8Array {
-  const distances = new Int8Array(
-    ESLICE_TABLE_SIZE,
-  )
-
-  distances.fill(-1)
-
-  const queue: CubeCoordinates[] = [
-    solvedCoordinates(),
-  ]
-
-  distances[encodeESlice(queue[0])] = 0
-
-  for (let head = 0; head < queue.length; head++) {
-    const current = queue[head]
-
-    const currentIndex = encodeESlice(current)
-    const nextDistance =
-      distances[currentIndex] + 1
-
-    for (
-      let moveIndex = 0;
-      moveIndex < SOLVER_MOVES.length;
-      moveIndex++
-    ) {
-      const next = applyCoordinateMove(
-        current,
-        moveIndex,
-      )
-
-      const nextIndex = encodeESlice(next)
-
-      if (distances[nextIndex] !== -1) {
-        continue
-      }
-
-      distances[nextIndex] = nextDistance
-      queue.push(next)
-    }
-  }
-
-  return distances
-}
-
-export const ESLICE_PRUNING_TABLE =
-  buildESlicePruningTable()
-
-export function getESliceDistance(
-  coordinates: CubeCoordinates,
-): number {
-  return ESLICE_PRUNING_TABLE[
-    encodeESlice(coordinates)
-  ]
-}
-export const PHASE1_TABLE_SIZE =
-  CORNER_ORIENTATION_TABLE_SIZE *
-  ESLICE_TABLE_SIZE
-
-export function encodePhase1(
-  coordinates: CubeCoordinates,
-): number {
-  return (
-    encodeCornerOrientation(coordinates) *
-      ESLICE_TABLE_SIZE +
-    encodeESlice(coordinates)
-  )
-}
-
-export function decodePhase1(
-  index: number,
-): CubeCoordinates {
-  if (
-    index < 0 ||
-    index >= PHASE1_TABLE_SIZE
-  ) {
-    throw new Error(
-      `Invalid phase-1 index: ${index}`,
-    )
-  }
-
-  const cornerOrientationIndex =
-    Math.floor(index / ESLICE_TABLE_SIZE)
-
-  const eSliceIndex =
-    index % ESLICE_TABLE_SIZE
-
-  const coordinates = solvedCoordinates()
-
-  coordinates.cornerOrientation =
-    decodeCornerOrientation(
-      cornerOrientationIndex,
-    )
-
-  coordinates.edgePermutation =
-    decodeESliceEdgePermutation(eSliceIndex)
-
-  return coordinates
-}
-
-function buildPhase1PruningTable(): Int8Array {
-  const distances = new Int8Array(
-    PHASE1_TABLE_SIZE,
-  )
-
-  distances.fill(-1)
-
-  const queue = new Int32Array(
-    PHASE1_TABLE_SIZE,
-  )
-
+  const queue = new Uint16Array(size)
   let head = 0
   let tail = 1
 
   queue[0] = 0
-  distances[0] = 0
 
   while (head < tail) {
-    const currentIndex = queue[head++]
-
-    const current = decodePhase1(currentIndex)
-
-    const nextDistance =
-      distances[currentIndex] + 1
+    const current = queue[head++]
+    const distance = table[current]
 
     for (
       let moveIndex = 0;
-      moveIndex < SOLVER_MOVES.length;
+      moveIndex < MOVE_COUNT;
       moveIndex++
     ) {
-      const next = applyCoordinateMove(
+      const next = nextCoordinate(
         current,
         moveIndex,
       )
 
-      const nextIndex = encodePhase1(next)
-
-      if (distances[nextIndex] !== -1) {
+      if (table[next] !== 255) {
         continue
       }
 
-      distances[nextIndex] = nextDistance
-      queue[tail++] = nextIndex
+      table[next] = distance + 1
+      queue[tail++] = next
     }
   }
 
-  return distances
+  return table
 }
+
+function buildPhase1PruningTable(): Uint8Array {
+  const table = new Uint8Array(
+    PHASE1_PRUNING_SIZE,
+  )
+
+  table.fill(255)
+
+  const queue = new Uint32Array(
+    PHASE1_PRUNING_SIZE,
+  )
+
+  const start = 0
+
+  table[start] = 0
+  queue[0] = start
+
+  let head = 0
+  let tail = 1
+
+  while (head < tail) {
+    const current = queue[head++]
+    const distance = table[current]
+
+    const cornerOrientation =
+      Math.floor(
+        current / ESLICE_COUNT,
+      )
+
+    const eSlice =
+      current % ESLICE_COUNT
+
+    for (
+      let moveIndex = 0;
+      moveIndex < MOVE_COUNT;
+      moveIndex++
+    ) {
+      const nextCornerOrientation =
+        nextCornerOrientationCoordinate(
+          cornerOrientation,
+          moveIndex,
+        )
+
+      const nextSlice =
+        nextESlice(
+          eSlice,
+          moveIndex,
+        )
+
+      const next =
+        nextCornerOrientation *
+          ESLICE_COUNT +
+        nextSlice
+
+      if (table[next] !== 255) {
+        continue
+      }
+
+      table[next] = distance + 1
+      queue[tail++] = next
+    }
+  }
+
+  return table
+}
+
+function nextCornerOrientationCoordinate(
+  coordinate: number,
+  moveIndex: number,
+): number {
+  return nextCornerOrientation(
+    coordinate,
+    moveIndex,
+  )
+}
+
+export const EDGE_ORIENTATION_PRUNING_TABLE =
+  buildSingleCoordinatePruningTable(
+    EDGE_ORIENTATION_COUNT,
+    nextEdgeOrientation,
+  )
+
+export const CORNER_ORIENTATION_PRUNING_TABLE =
+  buildSingleCoordinatePruningTable(
+    CORNER_ORIENTATION_COUNT,
+    nextCornerOrientation,
+  )
+
+export const ESLICE_PRUNING_TABLE =
+  buildSingleCoordinatePruningTable(
+    ESLICE_COUNT,
+    nextESlice,
+  )
 
 export const PHASE1_PRUNING_TABLE =
   buildPhase1PruningTable()
 
+export function getEdgeOrientationDistance(
+  coordinate: number,
+): number {
+  return EDGE_ORIENTATION_PRUNING_TABLE[
+    coordinate
+  ]
+}
+
+export function getCornerOrientationDistance(
+  coordinate: number,
+): number {
+  return CORNER_ORIENTATION_PRUNING_TABLE[
+    coordinate
+  ]
+}
+
+export function getESliceDistance(
+  coordinate: number,
+): number {
+  return ESLICE_PRUNING_TABLE[
+    coordinate
+  ]
+}
+
 export function getPhase1Distance(
-  coordinates: CubeCoordinates,
+  cornerOrientation: number,
+  eSlice: number,
 ): number {
   return PHASE1_PRUNING_TABLE[
-    encodePhase1(coordinates)
+    cornerOrientation *
+      ESLICE_COUNT +
+      eSlice
   ]
 }

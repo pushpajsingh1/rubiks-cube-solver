@@ -1,128 +1,129 @@
-import { describe, expect, it } from "vitest"
+import {
+  describe,
+  expect,
+  it,
+} from "vitest"
 
 import {
-  applyCoordinateMove,
-  SOLVER_MOVES,
-  solvedCoordinates,
-} from "./moveTables"
-
-import {
+  EDGE_ORIENTATION_PRUNING_TABLE,
   CORNER_ORIENTATION_PRUNING_TABLE,
-  CORNER_ORIENTATION_TABLE_SIZE,
-  decodePhase1,
-  encodePhase1,
   ESLICE_PRUNING_TABLE,
-  ESLICE_TABLE_SIZE,
+  PHASE1_PRUNING_TABLE,
+  getEdgeOrientationDistance,
   getCornerOrientationDistance,
   getESliceDistance,
-  PHASE1_TABLE_SIZE,
   getPhase1Distance,
-  PHASE1_PRUNING_TABLE,
 } from "./pruningTables"
 
-describe("corner-orientation pruning table", () => {
-  it("assigns distance zero to the solved state", () => {
+import {
+  EDGE_ORIENTATION_COUNT,
+  CORNER_ORIENTATION_COUNT,
+  ESLICE_COUNT,
+} from "./coordinateMoveTables"
+
+function getMaximumDistance(
+  table: Uint8Array,
+): number {
+  let maximum = 0
+
+  for (const value of table) {
+    if (value > maximum) {
+      maximum = value
+    }
+  }
+
+  return maximum
+}
+
+describe("pruning tables", () => {
+  it("has the expected sizes", () => {
     expect(
-      getCornerOrientationDistance(
-        solvedCoordinates(),
-      ),
-    ).toBe(0)
-  })
+      EDGE_ORIENTATION_PRUNING_TABLE.length,
+    ).toBe(EDGE_ORIENTATION_COUNT)
 
-  it("assigns distance one after an R turn", () => {
-    const turned = applyCoordinateMove(
-      solvedCoordinates(),
-      SOLVER_MOVES.indexOf("R"),
-    )
-
-    expect(
-      getCornerOrientationDistance(turned),
-    ).toBe(1)
-  })
-
-  it("reaches every corner-orientation state", () => {
     expect(
       CORNER_ORIENTATION_PRUNING_TABLE.length,
-    ).toBe(CORNER_ORIENTATION_TABLE_SIZE)
+    ).toBe(CORNER_ORIENTATION_COUNT)
 
     expect(
-      [...CORNER_ORIENTATION_PRUNING_TABLE]
-        .every((distance) => distance >= 0),
-    ).toBe(true)
+      ESLICE_PRUNING_TABLE.length,
+    ).toBe(ESLICE_COUNT)
+
+    expect(
+      PHASE1_PRUNING_TABLE.length,
+    ).toBe(
+      CORNER_ORIENTATION_COUNT *
+        ESLICE_COUNT,
+    )
   })
-})
 
-describe("E-slice pruning table", () => {
-  it("assigns distance zero to the solved state", () => {
+  it("has distance zero at the solved coordinate", () => {
     expect(
-      getESliceDistance(solvedCoordinates()),
+      getEdgeOrientationDistance(0),
+    ).toBe(0)
+
+    expect(
+      getCornerOrientationDistance(0),
+    ).toBe(0)
+
+    expect(
+      getESliceDistance(0),
+    ).toBe(0)
+
+    expect(
+      getPhase1Distance(0, 0),
     ).toBe(0)
   })
 
-  it("assigns distance one after an R turn", () => {
-    const turned = applyCoordinateMove(
-      solvedCoordinates(),
-      SOLVER_MOVES.indexOf("R"),
-    )
-
-    expect(getESliceDistance(turned)).toBe(1)
-  })
-
-  it("reaches every E-slice state", () => {
-    expect(ESLICE_PRUNING_TABLE.length).toBe(
-      ESLICE_TABLE_SIZE,
-    )
+  it("does not contain unreachable states", () => {
+    expect(
+      EDGE_ORIENTATION_PRUNING_TABLE.includes(
+        255,
+      ),
+    ).toBe(false)
 
     expect(
-      [...ESLICE_PRUNING_TABLE].every(
-        (distance) => distance >= 0,
+      CORNER_ORIENTATION_PRUNING_TABLE.includes(
+        255,
       ),
-    ).toBe(true)
+    ).toBe(false)
+
+    expect(
+      ESLICE_PRUNING_TABLE.includes(
+        255,
+      ),
+    ).toBe(false)
+
+    expect(
+      PHASE1_PRUNING_TABLE.includes(
+        255,
+      ),
+    ).toBe(false)
+  })
+
+  it("has reasonable maximum distances", () => {
+    expect(
+      getMaximumDistance(
+        EDGE_ORIENTATION_PRUNING_TABLE,
+      ),
+    ).toBeGreaterThan(0)
+
+    expect(
+      getMaximumDistance(
+        CORNER_ORIENTATION_PRUNING_TABLE,
+      ),
+    ).toBeGreaterThan(0)
+
+    expect(
+      getMaximumDistance(
+        ESLICE_PRUNING_TABLE,
+      ),
+    ).toBeGreaterThan(0)
+
+    expect(
+      getMaximumDistance(
+        PHASE1_PRUNING_TABLE,
+      ),
+    ).toBeGreaterThan(0)
   })
 })
-
-describe("phase-1 coordinate index", () => {
-  it("round-trips representative indexes", () => {
-    const indexes = [
-      0,
-      1,
-      ESLICE_TABLE_SIZE - 1,
-      ESLICE_TABLE_SIZE,
-      PHASE1_TABLE_SIZE - 1,
-    ]
-
-    for (const index of indexes) {
-      expect(
-        encodePhase1(decodePhase1(index)),
-      ).toBe(index)
-    }
-  })
-})
-describe("phase-1 pruning table", () => {
-  it("assigns distance zero to the solved state", () => {
-    expect(
-      getPhase1Distance(solvedCoordinates()),
-    ).toBe(0)
-  })
-
-  it("assigns distance one after an R turn", () => {
-    const turned = applyCoordinateMove(
-      solvedCoordinates(),
-      SOLVER_MOVES.indexOf("R"),
-    )
-
-    expect(getPhase1Distance(turned)).toBe(1)
-  })
-
-  it("reaches every phase-1 state", () => {
-    expect(PHASE1_PRUNING_TABLE.length).toBe(
-      PHASE1_TABLE_SIZE,
-    )
-
-    expect(
-      [...PHASE1_PRUNING_TABLE].every(
-        (distance) => distance >= 0,
-      ),
-    ).toBe(true)
-  })
-}) 

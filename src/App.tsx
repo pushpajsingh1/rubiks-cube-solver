@@ -22,9 +22,110 @@ import {
 } from "./cube/moves"
 import { createSolvedCube } from "./cube/CubeState"
 import { solveCube } from "./cube/solver/solver"
+import CubeColorInput from "./cube/input/CubeColorInput"
 import "./App.css"
 
 type MoveFunction = (cube: CubeState) => CubeState
+
+const moveInstructions: Record<
+  string,
+  {
+    face: string
+    direction: string
+    detail: string
+  }
+> = {
+  U: {
+    face: "TOP",
+    direction: "Clockwise",
+    detail: "Turn the top face clockwise.",
+  },
+  "U'": {
+    face: "TOP",
+    direction: "Counter-clockwise",
+    detail: "Turn the top face counter-clockwise.",
+  },
+  U2: {
+    face: "TOP",
+    direction: "180°",
+    detail: "Turn the top face twice.",
+  },
+  R: {
+    face: "RIGHT",
+    direction: "Clockwise",
+    detail: "Turn the right face clockwise.",
+  },
+  "R'": {
+    face: "RIGHT",
+    direction: "Counter-clockwise",
+    detail: "Turn the right face counter-clockwise.",
+  },
+  R2: {
+    face: "RIGHT",
+    direction: "180°",
+    detail: "Turn the right face twice.",
+  },
+  F: {
+    face: "FRONT",
+    direction: "Clockwise",
+    detail: "Turn the front face clockwise.",
+  },
+  "F'": {
+    face: "FRONT",
+    direction: "Counter-clockwise",
+    detail: "Turn the front face counter-clockwise.",
+  },
+  F2: {
+    face: "FRONT",
+    direction: "180°",
+    detail: "Turn the front face twice.",
+  },
+  L: {
+    face: "LEFT",
+    direction: "Clockwise",
+    detail: "Turn the left face clockwise.",
+  },
+  "L'": {
+    face: "LEFT",
+    direction: "Counter-clockwise",
+    detail: "Turn the left face counter-clockwise.",
+  },
+  L2: {
+    face: "LEFT",
+    direction: "180°",
+    detail: "Turn the left face twice.",
+  },
+  D: {
+    face: "BOTTOM",
+    direction: "Clockwise",
+    detail: "Turn the bottom face clockwise.",
+  },
+  "D'": {
+    face: "BOTTOM",
+    direction: "Counter-clockwise",
+    detail: "Turn the bottom face counter-clockwise.",
+  },
+  D2: {
+    face: "BOTTOM",
+    direction: "180°",
+    detail: "Turn the bottom face twice.",
+  },
+  B: {
+    face: "BACK",
+    direction: "Clockwise",
+    detail: "Turn the back face clockwise.",
+  },
+  "B'": {
+    face: "BACK",
+    direction: "Counter-clockwise",
+    detail: "Turn the back face counter-clockwise.",
+  },
+  B2: {
+    face: "BACK",
+    direction: "180°",
+    detail: "Turn the back face twice.",
+  },
+}
 
 const moves: Record<string, MoveFunction> = {
   U: moveU,
@@ -145,6 +246,9 @@ function App() {
 
   const [showStats, setShowStats] = useState(true)
 
+const [solutionStartCube, setSolutionStartCube] =
+  useState<CubeState | null>(null)
+
   const totalMoves = moveHistory.length
 
   const isSolved = useMemo(() => {
@@ -214,6 +318,51 @@ function App() {
     setCurrentSolutionMove(-1)
   }, [isSolving])
 
+  function nextSolutionMove() {
+    if (isSolving || solution.length === 0) return
+
+    const nextIndex = currentSolutionMove + 1
+
+    if (nextIndex >= solution.length) return
+
+    const move = solution[nextIndex]
+    const moveFunction = moves[move]
+
+    if (!moveFunction) return
+
+    setCube((currentCube) => moveFunction(currentCube))
+    setMoveHistory((history) => [...history, move])
+    setCurrentSolutionMove(nextIndex)
+  }
+
+  function previousSolutionMove() {
+    if (
+      isSolving ||
+      solution.length === 0 ||
+      !solutionStartCube ||
+      currentSolutionMove <= 0
+    ) {
+      return
+    }
+
+    const targetIndex = currentSolutionMove - 1
+
+    let rebuiltCube = solutionStartCube
+
+    for (let index = 0; index <= targetIndex; index++) {
+      const move = solution[index]
+      const moveFunction = moves[move]
+
+      if (moveFunction) {
+        rebuiltCube = moveFunction(rebuiltCube)
+      }
+    }
+
+    setCube(rebuiltCube)
+    setMoveHistory(solution.slice(0, targetIndex + 1))
+    setCurrentSolutionMove(targetIndex)
+  }
+
   function clearHistory() {
     if (isSolving) return
 
@@ -276,10 +425,19 @@ function App() {
     setCurrentSolutionMove(-1)
   }
 
-  function solveCurrentCube() {
+  const activeMove =
+    solution.length > 0
+      ? solution[Math.max(0, currentSolutionMove)]
+      : null
+
+  const activeInstruction = activeMove
+    ? moveInstructions[activeMove]
+    : null
+
+  function solveCurrentCube(cubeToSolve = cube) {
     if (isSolving) return
 
-    const result = solveCube(cube)
+    const result = solveCube(cubeToSolve)
 
     if (!result.solved) {
       alert(
@@ -287,6 +445,8 @@ function App() {
       )
       return
     }
+
+    setSolutionStartCube(cubeToSolve)
 
     if (result.moves.length === 0) {
       setSolution([])
@@ -298,7 +458,7 @@ function App() {
     setCurrentSolutionMove(-1)
     setIsSolving(true)
 
-    let currentCube = cube
+    let currentCube = cubeToSolve
     let currentHistory = [...moveHistory]
 
     result.moves.forEach((move, index) => {
@@ -444,7 +604,7 @@ function App() {
 
           <button
             className="solve-button"
-            onClick={solveCurrentCube}
+            onClick={() => solveCurrentCube()}
             disabled={isSolving}
           >
             {isSolving
@@ -512,7 +672,11 @@ function App() {
           </div>
         </section>
 
-        <section className="workspace">
+        <section className="workspace custom-workspace">
+    <CubeColorInput
+      onCubeChange={(enteredCube) => setCube(enteredCube)}
+      onCubeReady={(enteredCube) => solveCurrentCube(enteredCube)}
+    />
           <div className="cube-panel">
             <div className="section-header">
               <div>
@@ -783,7 +947,94 @@ function App() {
               )}
             </div>
 
-            {solution.length === 0 ? (
+            {solution.length > 0 && (
+             <div className="solving-guide">
+               <div className="guide-header">
+                 <div>
+                   <span className="eyebrow">SOLVING GUIDE</span>
+                   <h3>
+                     Step {Math.max(1, currentSolutionMove + 1)} of{" "}
+                     {solution.length}
+                   </h3>
+                 </div>
+
+                 <span className="guide-move-badge">
+                   {activeMove ?? solution[0]}
+                 </span>
+               </div>
+
+               <div className="hold-card">
+                 <span className="hold-icon">🧊</span>
+                 <div>
+                   <strong>Hold Your Cube</strong>
+                   <p>
+                     Keep <b>White on Top</b>, <b>Green facing Front</b>,
+                     and <b>Red on the Right</b>.
+                   </p>
+                 </div>
+               </div>
+
+               {activeInstruction && (
+                 <div className="move-instruction">
+                   <div className="instruction-face">
+                     <span className="instruction-arrow">↻</span>
+                     <strong>{activeInstruction.face}</strong>
+                   </div>
+
+                   <div className="instruction-content">
+                     <span className="instruction-label">
+                       PERFORM THIS MOVE
+                     </span>
+                     <h3>
+                       {activeMove} — {activeInstruction.direction}
+                     </h3>
+                     <p>{activeInstruction.detail}</p>
+                     <small>
+                       Clockwise means turning the face clockwise while
+                       looking directly at that face.
+                     </small>
+                   </div>
+                 </div>
+               )}
+
+               <div className="guide-controls">
+                 <button
+                   type="button"
+                   className="guide-button"
+                   disabled={currentSolutionMove <= 0}
+                  onClick={previousSolutionMove}
+                 >
+                   ← Previous
+                 </button>
+
+                 <div className="guide-progress">
+                   <div
+                     className="guide-progress-bar"
+                     style={{
+                       width: `${Math.min(
+                         100,
+                         ((currentSolutionMove + 1) / solution.length) *
+                           100,
+                       )}%`,
+                     }}
+                   />
+                 </div>
+
+                 <button
+                   type="button"
+                   className="guide-button primary"
+                   disabled={
+                     currentSolutionMove >= solution.length - 1
+                   }
+                  onClick={nextSolutionMove}
+                 >
+                   Next →
+                 </button>
+               </div>
+             </div>
+           )}
+
+           {solution.length === 0 ? (
               <div className="empty-state">
                 <span>✧</span>
                 <p>No solution yet</p>

@@ -13,6 +13,7 @@ import {
 } from "./phase2Moves"
 import {
   getPhase2Distance,
+  ensurePhase2PruningTables,
 } from "./phase2PruningTables"
 import {
   cornerPermutationMoveTable,
@@ -21,6 +22,7 @@ import {
   PHASE2_MOVE_COUNT,
   ensurePhase2MoveTables,
 } from "./phase2MoveTables"
+
 
 export type Phase2State = {
   cornerPermutation: number
@@ -268,6 +270,7 @@ export function solvePhase2(
   cube: CubeState,
   maxDepth: number = MAX_PHASE2_DEPTH,
 ): Phase2Result {
+    ensurePhase2PruningTables()
   ensurePhase2MoveTables()
 
   const start =

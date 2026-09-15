@@ -17,6 +17,12 @@ export const PHASE2_UD_ESLICE_SIZE =
   UD_EDGE_PERMUTATION_COUNT *
   ESLICE_PERMUTATION_COUNT
 
+let cpESlicePruningTable:
+  Uint8Array | undefined
+
+let udESlicePruningTable:
+  Uint8Array | undefined
+
 function buildCPESlicePruningTable(): Uint8Array {
   ensurePhase2MoveTables()
 
@@ -59,14 +65,14 @@ function buildCPESlicePruningTable(): Uint8Array {
         cornerPermutationMoveTable[
           cornerPermutation *
             PHASE2_MOVE_COUNT +
-            move
+          move
         ]
 
       const nextESlice =
         eSlicePermutationMoveTable[
           eSlice *
             PHASE2_MOVE_COUNT +
-            move
+          move
         ]
 
       const next =
@@ -128,14 +134,14 @@ function buildUDESlicePruningTable(): Uint8Array {
         udEdgePermutationMoveTable[
           udEdgePermutation *
             PHASE2_MOVE_COUNT +
-            move
+          move
         ]
 
       const nextESlice =
         eSlicePermutationMoveTable[
           eSlice *
             PHASE2_MOVE_COUNT +
-            move
+          move
         ]
 
       const next =
@@ -155,17 +161,28 @@ function buildUDESlicePruningTable(): Uint8Array {
   return table
 }
 
-export const PHASE2_CP_ESLICE_PRUNING_TABLE =
-  buildCPESlicePruningTable()
+export function ensurePhase2PruningTables(): void {
+  if (
+    cpESlicePruningTable &&
+    udESlicePruningTable
+  ) {
+    return
+  }
 
-export const PHASE2_UD_ESLICE_PRUNING_TABLE =
-  buildUDESlicePruningTable()
+  cpESlicePruningTable =
+    buildCPESlicePruningTable()
+
+  udESlicePruningTable =
+    buildUDESlicePruningTable()
+}
 
 export function getPhase2CPESliceDistance(
   cornerPermutation: number,
   eSlicePermutation: number,
 ): number {
-  return PHASE2_CP_ESLICE_PRUNING_TABLE[
+  ensurePhase2PruningTables()
+
+  return cpESlicePruningTable![
     cornerPermutation *
       ESLICE_PERMUTATION_COUNT +
     eSlicePermutation
@@ -176,7 +193,9 @@ export function getPhase2UDESliceDistance(
   udEdgePermutation: number,
   eSlicePermutation: number,
 ): number {
-  return PHASE2_UD_ESLICE_PRUNING_TABLE[
+  ensurePhase2PruningTables()
+
+  return udESlicePruningTable![
     udEdgePermutation *
       ESLICE_PERMUTATION_COUNT +
     eSlicePermutation
@@ -188,6 +207,8 @@ export function getPhase2Distance(
   udEdgePermutation: number,
   eSlicePermutation: number,
 ): number {
+  ensurePhase2PruningTables()
+
   return Math.max(
     getPhase2CPESliceDistance(
       cornerPermutation,

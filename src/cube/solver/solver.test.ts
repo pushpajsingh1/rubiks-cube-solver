@@ -1,206 +1,257 @@
-import { describe, expect, it } from "vitest"
-import { createSolvedCube } from "../CubeState"
+import {
+  describe,
+  expect,
+  it,
+} from "vitest"
+
 import {
   applyMove,
-  inverseSequence,
   type Move,
 } from "../notation"
-import { moveR } from "../moves"
-import { solveCube } from "./solver"
 
-describe("Search solver", () => {
+import {
+  coordinatesToCube,
+} from "./coordinates"
+
+import {
+  solvedCoordinates,
+} from "./moveTables"
+
+import {
+  solveCube,
+} from "./solver"
+
+function solvedCube() {
+  return coordinatesToCube(
+    solvedCoordinates(),
+  )
+}
+
+function scrambleCube(
+  scramble: Move[],
+) {
+  let cube =
+    solvedCube()
+
+  for (const move of scramble) {
+    cube = applyMove(
+      cube,
+      move,
+    )
+  }
+
+  return cube
+}
+
+function applySolution(
+  cube: ReturnType<
+    typeof solvedCube
+  >,
+  solution: Move[],
+) {
+  let current = cube
+
+  for (const move of solution) {
+    current = applyMove(
+      current,
+      move,
+    )
+  }
+
+  return current
+}
+
+function expectSolved(
+  cube: ReturnType<
+    typeof solvedCube
+  >,
+) {
+  expect(cube).toEqual(
+    solvedCube(),
+  )
+}
+
+describe("Two-phase solver", () => {
   it("should recognize a solved cube", () => {
-    const cube = createSolvedCube()
+    const cube =
+      solvedCube()
 
-    const result = solveCube(cube)
+    const result =
+      solveCube(cube)
 
     expect(result.solved).toBe(true)
     expect(result.moves).toEqual([])
   })
 
   it("should solve a one-move scramble", () => {
-    const cube = moveR(createSolvedCube())
+    const cube =
+      scrambleCube(["R"])
 
-    const result = solveCube(cube, 1)
+    const result =
+      solveCube(cube, 30)
 
     expect(result.solved).toBe(true)
-    expect(result.moves.length).toBeLessThanOrEqual(1)
+
+    expectSolved(
+      applySolution(
+        cube,
+        result.moves,
+      ),
+    )
   })
 
   it("should solve a two-move scramble", () => {
-    let cube = createSolvedCube()
+    const cube =
+      scrambleCube([
+        "R",
+        "U",
+      ])
 
-    cube = applyMove(cube, "R")
-    cube = applyMove(cube, "U")
-
-    const result = solveCube(cube, 2)
-
-    expect(result.solved).toBe(true)
-    expect(result.moves.length).toBeLessThanOrEqual(2)
-  })
-
-  it("should solve a three-move scramble", () => {
-    let cube = createSolvedCube()
-
-    const scramble: Move[] = [
-      "R",
-      "U",
-      "F",
-    ]
-
-    for (const move of scramble) {
-      cube = applyMove(cube, move)
-    }
-
-    const result = solveCube(cube, 3)
-
-    expect(result.solved).toBe(true)
-    expect(result.moves.length).toBeLessThanOrEqual(3)
-  })
-
-  it("should solve using the returned solution", () => {
-    let cube = createSolvedCube()
-
-    const scramble: Move[] = [
-      "R",
-      "U",
-      "F",
-    ]
-
-    for (const move of scramble) {
-      cube = applyMove(cube, move)
-    }
-
-    const result = solveCube(cube, 3)
+    const result =
+      solveCube(cube, 30)
 
     expect(result.solved).toBe(true)
 
-    for (const move of result.moves) {
-      cube = applyMove(cube, move)
-    }
-
-    expect(cube).toEqual(createSolvedCube())
+    expectSolved(
+      applySolution(
+        cube,
+        result.moves,
+      ),
+    )
   })
 
-  it("should solve a scramble within the requested depth", () => {
-    let cube = createSolvedCube()
-
+  it("should solve a short scramble", () => {
     const scramble: Move[] = [
       "R",
       "U",
       "R'",
       "U'",
+      "F",
     ]
 
-    for (const move of scramble) {
-      cube = applyMove(cube, move)
-    }
+    const cube =
+      scrambleCube(scramble)
 
-    const result = solveCube(cube, 4)
+    const result =
+      solveCube(cube, 30)
 
     expect(result.solved).toBe(true)
-    expect(result.moves.length).toBeLessThanOrEqual(4)
+
+    expectSolved(
+      applySolution(
+        cube,
+        result.moves,
+      ),
+    )
   })
 
-  it("should return unsolved when the depth is insufficient", () => {
-    let cube = createSolvedCube()
+  it("should solve a 10-move scramble", () => {
+    const scramble: Move[] = [
+      "R",
+      "U",
+      "R'",
+      "U'",
+      "F",
+      "R",
+      "U2",
+      "L'",
+      "D",
+      "B2",
+    ]
 
-    cube = applyMove(cube, "R")
-    cube = applyMove(cube, "U")
+    const cube =
+      scrambleCube(scramble)
 
-    const result = solveCube(cube, 1)
+    const result =
+      solveCube(cube, 30)
+
+    expect(result.solved).toBe(true)
+
+    expectSolved(
+      applySolution(
+        cube,
+        result.moves,
+      ),
+    )
+  })
+
+  it("should solve a 20-move scramble", () => {
+    const scramble: Move[] = [
+      "R",
+      "U",
+      "R'",
+      "U'",
+      "F",
+      "R",
+      "U2",
+      "L'",
+      "D",
+      "B2",
+      "F'",
+      "U",
+      "L2",
+      "D'",
+      "R2",
+      "B",
+      "U'",
+      "F2",
+      "L",
+      "D2",
+    ]
+
+    const cube =
+      scrambleCube(scramble)
+
+    const result =
+      solveCube(cube, 30)
+
+    expect(result.solved).toBe(true)
+
+    expectSolved(
+      applySolution(
+        cube,
+        result.moves,
+      ),
+    )
+  })
+
+  it("should respect the maximum depth", () => {
+    const cube =
+      scrambleCube([
+        "R",
+        "U",
+        "R'",
+        "U'",
+      ])
+
+    const result =
+      solveCube(cube, 1)
 
     expect(result.solved).toBe(false)
     expect(result.moves).toEqual([])
   })
 
-  it("should produce a valid solution", () => {
-    let cube = createSolvedCube()
+  it("should return a valid solution", () => {
+    const cube =
+      scrambleCube([
+        "F",
+        "R",
+        "U",
+        "R'",
+        "U'",
+        "F'",
+      ])
 
-    const scramble: Move[] = [
-      "R",
-      "U",
-      "F",
-    ]
-
-    for (const move of scramble) {
-      cube = applyMove(cube, move)
-    }
-
-    const result = solveCube(cube, 3)
-
-    expect(result.solved).toBe(true)
-
-    const solution = result.moves
-
-    cube = createSolvedCube()
-
-    for (const move of scramble) {
-      cube = applyMove(cube, move)
-    }
-
-    for (const move of solution) {
-      cube = applyMove(cube, move)
-    }
-
-    expect(cube).toEqual(createSolvedCube())
-
-    expect(
-      inverseSequence(solution).length,
-    ).toBe(solution.length)
-  })
-
-  it("should solve a longer scramble within the requested depth", () => {
-    let cube = createSolvedCube()
-
-    const scramble: Move[] = [
-      "R",
-      "U",
-      "R'",
-      "U'",
-      "F",
-    ]
-
-    for (const move of scramble) {
-      cube = applyMove(cube, move)
-    }
-
-    const result = solveCube(cube, 5)
+    const result =
+      solveCube(cube, 30)
 
     expect(result.solved).toBe(true)
-    expect(result.moves.length).toBeLessThanOrEqual(5)
 
-    for (const move of result.moves) {
-      cube = applyMove(cube, move)
-    }
-
-    expect(cube).toEqual(createSolvedCube())
-  })
-})
-describe("IDA* long scramble tests", () => {
-  it.skip("solves a 10-move scramble", () => {
-    const scramble: Move[] = [
-      "R",
-      "U",
-      "R'",
-      "U'",
-      "F",
-      "R",
-      "F'",
-      "U2",
-      "L",
-      "D",
-    ]
-
-    let cube = createSolvedCube()
-
-    for (const move of scramble) {
-      cube = applyMove(cube, move)
-    }
-
-    const result = solveCube(cube, 20)
-
-    expect(result.solved).toBe(true)
-    expect(result.moves.length).toBeLessThanOrEqual(20)
+    expectSolved(
+      applySolution(
+        cube,
+        result.moves,
+      ),
+    )
   })
 })

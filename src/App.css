@@ -1430,3 +1430,113 @@ button:disabled {
     grid-column: 1;
   }
 }
+
+/* Visual solving move indicator */
+.cube-stage {
+  position: relative;
+}
+
+.visual-move-indicator {
+  position: absolute;
+  z-index: 20;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  background: rgba(10, 12, 18, 0.88);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+  animation: move-indicator-pulse 1.2s ease-in-out infinite;
+}
+
+.visual-move-indicator .move-arrow {
+  font-size: 38px;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.visual-move-indicator strong {
+  font-size: 13px;
+  letter-spacing: 0.14em;
+}
+
+.visual-move-indicator small {
+  font-size: 10px;
+  opacity: 0.65;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.visual-move-indicator.clockwise .move-arrow {
+  animation: arrow-clockwise 1s ease-in-out infinite;
+}
+
+.visual-move-indicator.counter-clockwise .move-arrow {
+  animation: arrow-counter-clockwise 1s ease-in-out infinite;
+}
+
+.visual-move-indicator.double-turn .move-arrow {
+  animation: arrow-double 1s ease-in-out infinite;
+}
+
+@keyframes move-indicator-pulse {
+  0%, 100% {
+    opacity: 0.82;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes arrow-clockwise {
+  0%, 100% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(35deg) scale(1.08);
+  }
+}
+
+@keyframes arrow-counter-clockwise {
+  0%, 100% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(-35deg) scale(1.08);
+  }
+}
+
+@keyframes arrow-double {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+
+.visual-face-animating {
+  animation: cube-face-turn 700ms ease-in-out;
+  z-index: 10;
+}
+
+@keyframes cube-face-turn {
+  0% {
+    transform: translateZ(120px) scale(1);
+  }
+
+  50% {
+    transform: translateZ(120px) scale(1.06);
+  }
+
+  100% {
+    transform: translateZ(120px) scale(1);
+  }
+}

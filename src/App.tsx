@@ -23,6 +23,7 @@ import {
 import { createSolvedCube } from "./cube/CubeState"
 import { solveCube } from "./cube/solver/solver"
 import CubeColorInput from "./cube/input/CubeColorInput"
+import Cube3D from "./cube/Cube3D"
 import "./App.css"
 
 type MoveFunction = (cube: CubeState) => CubeState
@@ -245,6 +246,7 @@ function App() {
   })
 
   const [showStats, setShowStats] = useState(true)
+  const [animatingMove, setAnimatingMove] = useState<string | null>(null)
 
 const [solutionStartCube, setSolutionStartCube] =
   useState<CubeState | null>(null)
@@ -319,51 +321,70 @@ const [solutionStartCube, setSolutionStartCube] =
   }, [isSolving])
 
   function nextSolutionMove() {
-    if (isSolving || solution.length === 0) return
+  if (
+    isSolving ||
+    animatingMove !== null ||
+    solution.length === 0
+  ) {
+    return
+  }
 
-    const nextIndex = currentSolutionMove + 1
+  const nextIndex = currentSolutionMove + 1
 
-    if (nextIndex >= solution.length) return
+  if (nextIndex >= solution.length) return
 
-    const move = solution[nextIndex]
-    const moveFunction = moves[move]
+  const move = solution[nextIndex]
+  const moveFunction = moves[move]
 
-    if (!moveFunction) return
+  if (!moveFunction) return
 
+  setAnimatingMove(move)
+
+  window.setTimeout(() => {
     setCube((currentCube) => moveFunction(currentCube))
     setMoveHistory((history) => [...history, move])
     setCurrentSolutionMove(nextIndex)
+    setAnimatingMove(null)
+  }, 700)
+}
+
+function previousSolutionMove() {
+  if (
+    isSolving ||
+    solution.length === 0 ||
+    !solutionStartCube ||
+    animatingMove !== null ||
+    currentSolutionMove < 0
+  ) {
+    return
   }
 
-  function previousSolutionMove() {
-    if (
-      isSolving ||
-      solution.length === 0 ||
-      !solutionStartCube ||
-      currentSolutionMove <= 0
-    ) {
-      return
-    }
+  const targetIndex = currentSolutionMove - 1
 
-    const targetIndex = currentSolutionMove - 1
-
-    let rebuiltCube = solutionStartCube
-
-    for (let index = 0; index <= targetIndex; index++) {
-      const move = solution[index]
-      const moveFunction = moves[move]
-
-      if (moveFunction) {
-        rebuiltCube = moveFunction(rebuiltCube)
-      }
-    }
-
-    setCube(rebuiltCube)
-    setMoveHistory(solution.slice(0, targetIndex + 1))
-    setCurrentSolutionMove(targetIndex)
+  if (targetIndex < 0) {
+    setCube(solutionStartCube)
+    setMoveHistory([])
+    setCurrentSolutionMove(-1)
+    return
   }
 
-  function clearHistory() {
+  let rebuiltCube = solutionStartCube
+
+  for (let index = 0; index <= targetIndex; index++) {
+    const move = solution[index]
+    const moveFunction = moves[move]
+
+    if (moveFunction) {
+      rebuiltCube = moveFunction(rebuiltCube)
+    }
+  }
+
+  setCube(rebuiltCube)
+  setMoveHistory(solution.slice(0, targetIndex + 1))
+  setCurrentSolutionMove(targetIndex)
+}
+
+function clearHistory() {
     if (isSolving) return
 
     setMoveHistory([])
@@ -434,59 +455,31 @@ const [solutionStartCube, setSolutionStartCube] =
     ? moveInstructions[activeMove]
     : null
 
-  function solveCurrentCube(cubeToSolve = cube) {
-    if (isSolving) return
+function solveCurrentCube(cubeToSolve = cube) {
+  if (isSolving) return
 
-    const result = solveCube(cubeToSolve)
+  const result = solveCube(cubeToSolve)
 
-    if (!result.solved) {
-      alert(
-        "Could not solve this cube within the current search depth.",
-      )
-      return
-    }
-
-    setSolutionStartCube(cubeToSolve)
-
-    if (result.moves.length === 0) {
-      setSolution([])
-      setCurrentSolutionMove(-1)
-      return
-    }
-
-    setSolution(result.moves)
-    setCurrentSolutionMove(-1)
-    setIsSolving(true)
-
-    let currentCube = cubeToSolve
-    let currentHistory = [...moveHistory]
-
-    result.moves.forEach((move, index) => {
-      setTimeout(() => {
-        const moveFunction = moves[move]
-
-        if (!moveFunction) return
-
-        currentCube = moveFunction(currentCube)
-        currentHistory = [
-          ...currentHistory,
-          move,
-        ]
-
-        setCube(currentCube)
-        setMoveHistory(currentHistory)
-        setCurrentSolutionMove(index)
-
-        if (
-          index ===
-          result.moves.length - 1
-        ) {
-          setIsSolving(false)
-        }
-      }, (index + 1) * 350)
-    })
+  if (!result.solved) {
+    alert(
+      "Could not solve this cube within the current search depth.",
+    )
+    return
   }
 
+  setSolutionStartCube(cubeToSolve)
+
+  if (result.moves.length === 0) {
+    setSolution([])
+    setCurrentSolutionMove(-1)
+    return
+  }
+
+  // Show the solution without automatically executing it.
+  setSolution(result.moves)
+  setCurrentSolutionMove(-1)
+  setIsSolving(false)
+}
   function rotateLeft() {
     setRotation((current) => ({
       ...current,
@@ -695,92 +688,11 @@ const [solutionStartCube, setSolutionStartCube] =
             </div>
 
             <div className="cube-stage">
-              <div
-                className="cube-display"
-                style={{
-                  transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`,
-                }}
-              >
-                <div className="cube-shadow" />
-
-                <div className="visual-face visual-front">
-                  {cube.F.map(
-                    (color, index) => (
-                      <div
-                        key={index}
-                        className={getColorClass(
-                          color,
-                        )}
-                      />
-                    ),
-                  )}
-                </div>
-
-                <div className="visual-face visual-back">
-                  {cube.B.map(
-                    (color, index) => (
-                      <div
-                        key={index}
-                        className={getColorClass(
-                          color,
-                        )}
-                      />
-                    ),
-                  )}
-                </div>
-
-                <div className="visual-face visual-right">
-                  {cube.R.map(
-                    (color, index) => (
-                      <div
-                        key={index}
-                        className={getColorClass(
-                          color,
-                        )}
-                      />
-                    ),
-                  )}
-                </div>
-
-                <div className="visual-face visual-left">
-                  {cube.L.map(
-                    (color, index) => (
-                      <div
-                        key={index}
-                        className={getColorClass(
-                          color,
-                        )}
-                      />
-                    ),
-                  )}
-                </div>
-
-                <div className="visual-face visual-top">
-                  {cube.U.map(
-                    (color, index) => (
-                      <div
-                        key={index}
-                        className={getColorClass(
-                          color,
-                        )}
-                      />
-                    ),
-                  )}
-                </div>
-
-                <div className="visual-face visual-bottom">
-                  {cube.D.map(
-                    (color, index) => (
-                      <div
-                        key={index}
-                        className={getColorClass(
-                          color,
-                        )}
-                      />
-                    ),
-                  )}
-                </div>
-              </div>
+              <Cube3D
+                cube={cube}
+                animatingMove={animatingMove}
+                rotation={rotation}
+              />
             </div>
 
             <div className="rotation-controls">

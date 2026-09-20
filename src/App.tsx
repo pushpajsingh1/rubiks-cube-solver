@@ -22,6 +22,7 @@ import {
 } from "./cube/moves"
 import { createSolvedCube } from "./cube/CubeState"
 import { solveCube } from "./cube/solver/solver"
+import { validateCube } from "./cube/validate"
 import CubeColorInput from "./cube/input/CubeColorInput"
 import Cube3D from "./cube/Cube3D"
 import "./App.css"
@@ -454,9 +455,18 @@ function clearHistory() {
   const activeInstruction = activeMove
     ? moveInstructions[activeMove]
     : null
-
 function solveCurrentCube(cubeToSolve = cube) {
   if (isSolving) return
+
+  const validation = validateCube(cubeToSolve)
+
+  if (!validation.valid) {
+    alert(
+      "Invalid cube configuration:\n\n" +
+        validation.errors.join("\n"),
+    )
+    return
+  }
 
   const result = solveCube(cubeToSolve)
 
@@ -480,6 +490,7 @@ function solveCurrentCube(cubeToSolve = cube) {
   setCurrentSolutionMove(-1)
   setIsSolving(false)
 }
+
   function rotateLeft() {
     setRotation((current) => ({
       ...current,

@@ -26,6 +26,9 @@ import { validateCube } from "./cube/validate"
 import CubeColorInput from "./cube/input/CubeColorInput"
 import Cube3D from "./cube/Cube3D"
 import "./App.css"
+import { applyScramble, generateScramble } from "./cube/scramble"
+import type { Move } from "./cube/notation"
+
 
 type MoveFunction = (cube: CubeState) => CubeState
 
@@ -237,6 +240,7 @@ function App() {
 
   const [solution, setSolution] = useState<string[]>([])
   const [moveHistory, setMoveHistory] = useState<string[]>([])
+  const [scramble, setScramble] = useState<Move[]>([])
   const [isSolving, setIsSolving] = useState(false)
   const [currentSolutionMove, setCurrentSolutionMove] =
     useState(-1)
@@ -321,6 +325,25 @@ const [solutionStartCube, setSolutionStartCube] =
     setCurrentSolutionMove(-1)
   }, [isSolving])
 
+  function scrambleCube() {
+  if (isSolving || animatingMove !== null) {
+    return
+  }
+
+  const newScramble = generateScramble(20)
+  const scrambledCube = applyScramble(
+    createSolvedCube(),
+    newScramble,
+  )
+
+  setCube(scrambledCube)
+  setScramble(newScramble)
+
+  setSolution([])
+  setMoveHistory([])
+  setCurrentSolutionMove(-1)
+  setSolutionStartCube(null)
+}
   function nextSolutionMove() {
   if (
     isSolving ||
@@ -389,62 +412,6 @@ function clearHistory() {
     if (isSolving) return
 
     setMoveHistory([])
-  }
-
-  function scrambleCube() {
-    if (isSolving) return
-
-    let scrambledCube = createSolvedCube()
-    const scramble: string[] = []
-
-    let previousFace = ""
-
-    const moveNames = [
-      "U",
-      "U'",
-      "U2",
-      "R",
-      "R'",
-      "R2",
-      "F",
-      "F'",
-      "F2",
-      "L",
-      "L'",
-      "L2",
-      "D",
-      "D'",
-      "D2",
-      "B",
-      "B'",
-      "B2",
-    ]
-
-    for (let i = 0; i < 20; i++) {
-      let move: string
-      let face: string
-
-      do {
-        move =
-          moveNames[
-            Math.floor(
-              Math.random() * moveNames.length,
-            )
-          ]
-
-        face = move[0]
-      } while (face === previousFace)
-
-      scrambledCube = moves[move](scrambledCube)
-
-      scramble.push(move)
-      previousFace = face
-    }
-
-    setCube(scrambledCube)
-    setMoveHistory(scramble)
-    setSolution([])
-    setCurrentSolutionMove(-1)
   }
 
   const activeMove =
@@ -605,7 +572,13 @@ function solveCurrentCube(cubeToSolve = cube) {
           >
             ↩ Undo
           </button>
-
+          <button
+            className="scramble-button"
+            onClick={scrambleCube}
+            disabled={isSolving || animatingMove !== null}
+          >
+            🎲 Scramble Cube
+          </button>
           <button
             className="solve-button"
             onClick={() => solveCurrentCube()}
@@ -615,7 +588,12 @@ function solveCurrentCube(cubeToSolve = cube) {
               ? "Solving..."
               : "🧩 Solve Cube"}
           </button>
-
+          {scramble.length > 0 && (
+  <div className="scramble-display">
+    <strong>Scramble:</strong>{" "}
+    {scramble.join(" ")}
+  </div>
+)}
           <button
             className="reset-button"
             onClick={resetCube}
